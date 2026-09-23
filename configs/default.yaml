@@ -1,0 +1,49 @@
+# ---- paths ----
+data:
+  mtrag_dir: data/mt-rag-benchmark        # created by scripts/setup_data.sh
+  index_dir: indexes
+  output_dir: outputs
+
+# ---- turn buckets used for abstention-drift analysis ----
+eval:
+  buckets: [[1, 2], [3, 5], [6, 99]]       # early / mid / late
+  bucket_names: [early, mid, late]
+  n_boot: 1000                            # bootstrap resamples (by conversation)
+  seed: 13
+
+# ---- retrieval ----
+retrieval:
+  bm25_top_k: 100
+  dense_model: BAAI/bge-small-en-v1.5
+  dense_top_k: 100
+  rrf_k: 60
+  reranker_model: BAAI/bge-reranker-base
+  rerank_top_n: 50
+  final_k: 5
+
+# ---- query rewriting: last_turn | full_history | oracle | llm ----
+rewrite:
+  mode: llm
+
+# ---- shared LLM (rewriter + generator) ----
+llm:
+  model: Qwen/Qwen2.5-7B-Instruct
+  load_in_4bit: true
+  max_new_tokens: 256
+
+# ---- answerability checker ----
+checker:
+  model: microsoft/deberta-v3-base
+  max_length: 512
+  epochs: 3
+  lr: 2.0e-5
+  batch_size: 8
+  grad_accum: 2
+  max_false_abstention: 0.05   # threshold chosen so <=5% of answerable dev turns are refused
+  output_dir: checkpoints/checker
+
+# ---- synthetic unanswerables (evidence removal) ----
+synthetic:
+  k: 5
+  per_task: 1
+  seed: 13
