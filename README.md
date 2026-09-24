@@ -66,6 +66,8 @@ _To be filled in; `scripts/evaluate_abstention.py` writes `results/abstention.md
 
 ## Quickstart
 
+**Windows laptop with a 4 GB GPU?** Follow [docs/windows_laptop.md](docs/windows_laptop.md) and use `configs/laptop.yaml`.
+
 ```bash
 git clone <this repo> && cd abstention-drift
 pip install -r requirements.txt && pip install -e .

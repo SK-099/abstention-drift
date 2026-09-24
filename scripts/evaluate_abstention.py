@@ -6,6 +6,7 @@ For answer quality (faithfulness, RB_llm, IDK-conditioned scores) run the offici
 on the same files: data/mt-rag-benchmark/scripts/evaluation/run_generation_eval.py
 """
 import argparse
+import glob
 import json
 from pathlib import Path
 
@@ -20,12 +21,14 @@ ap.add_argument("--set", nargs="*", default=[], help="config overrides key=value
 ap.add_argument("--plot", default="results/drift.png")
 a = ap.parse_args()
 cfg = load_config(a.config, a.set)
+# expand wildcards ourselves: Windows shells pass "outputs/S*.jsonl" through literally
+a.files = sorted({f for pat in a.files for f in (glob.glob(pat) or [pat])})
 B, N, NB = cfg["eval"]["buckets"], cfg["eval"]["bucket_names"], cfg["eval"]["n_boot"]
 
 
 def records(path):
     rs = []
-    for row in map(json.loads, open(path)):
+    for row in map(json.loads, open(path, encoding="utf-8")):
         if "label" in row and "pred" in row:          # synthetic-probe format
             rs.append(row)
             continue

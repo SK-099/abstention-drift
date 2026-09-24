@@ -28,11 +28,11 @@ ap.add_argument("--set", nargs="*", default=[], help="config overrides, e.g. --s
 a = ap.parse_args()
 cfg = load_config(a.config, a.set)
 out_dir = Path(cfg["data"]["output_dir"])
-exs = [json.loads(l) for l in open(out_dir / "checker_dev.jsonl")][: a.limit]
+exs = [json.loads(l) for l in open(out_dir / "checker_dev.jsonl", encoding="utf-8")][: a.limit]
 
 if a.who == "checker":
     from abstain.checker import AnswerabilityChecker
-    ch = AnswerabilityChecker(a.ckpt or cfg["checker"]["output_dir"] + "/best")
+    ch = AnswerabilityChecker(a.ckpt or cfg["checker"]["output_dir"] + "/best", device=cfg["checker"].get("infer_device"))
     probs = ch.predict_proba(exs)
     preds = [int(p >= ch.threshold) for p in probs]
 else:
@@ -48,7 +48,7 @@ else:
         preds.append(int(is_idk(generate_answer(llm, t, e["passages"]))))
 
 path = out_dir / f"probe_{a.who}.jsonl"
-with open(path, "w") as f:
+with open(path, "w", encoding="utf-8") as f:
     for e, p in zip(exs, preds):
         f.write(json.dumps({k: e[k] for k in ("task_id", "conversation_id", "turn", "collection", "multi_turn",
                                               "label", "kind")} | {"pred": p}) + "\n")

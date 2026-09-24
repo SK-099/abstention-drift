@@ -50,7 +50,7 @@ out = Path(cfg["data"]["output_dir"]); out.mkdir(exist_ok=True)
 for name, split in (("train", train), ("dev", dev)):
     exs = checker_examples(split, retrieve, rewriter, k=cfg["synthetic"]["k"], seed=cfg["synthetic"]["seed"],
                            verify=partial(llm_still_answerable, llm) if a.verify_llm else None)
-    with open(out / f"checker_{name}.jsonl", "w") as f:
+    with open(out / f"checker_{name}.jsonl", "w", encoding="utf-8") as f:
         for e in exs:
             f.write(json.dumps(e) + "\n")
     n_syn = sum(e["kind"] == "synthetic" for e in exs); n_pos = sum(e["label"] for e in exs)

@@ -78,7 +78,7 @@ def train_checker(train: list[dict], dev: list[dict], cfg: dict) -> dict:
     checker = AnswerabilityChecker(str(out))
     probs = checker.predict_proba(dev)
     th = choose_threshold(probs, [e["label"] for e in dev], c["max_false_abstention"])
-    json.dump(th, open(out / "threshold.json", "w"), indent=2)
+    json.dump(th, open(out / "threshold.json", "w", encoding="utf-8"), indent=2)
     return th
 
 
@@ -92,7 +92,7 @@ class AnswerabilityChecker:
         self.model = AutoModelForSequenceClassification.from_pretrained(path).to(self.device).eval()
         th_file = Path(path) / "threshold.json"
         self.threshold = threshold if threshold is not None else (
-            json.load(open(th_file))["threshold"] if th_file.exists() else 0.5)
+            json.load(open(th_file, encoding="utf-8"))["threshold"] if th_file.exists() else 0.5)
 
     def predict_proba(self, examples: list[dict], batch_size: int = 16, max_length: int = 512) -> np.ndarray:
         import torch

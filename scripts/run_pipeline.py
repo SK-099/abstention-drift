@@ -47,7 +47,7 @@ if a.split == "dev":
 else:
     tasks = bench["mtragun"]
     raw_path = d / "mtragun-human/generation_tasks/reference.jsonl"
-raw = {r["task_id"]: r for r in map(json.loads, open(raw_path))}
+raw = {r["task_id"]: r for r in map(json.loads, open(raw_path, encoding="utf-8"))}
 tasks = [t for t in tasks if t.abstain_label is not None and (not a.collections or t.collection in a.collections)][: a.limit]
 
 llm = None
@@ -58,14 +58,14 @@ checker = None
 if ckpt:
     from abstain.checker import AnswerabilityChecker
     base = cfg["checker"]["output_dir"] + ("-real" if ckpt == "real" else "")
-    checker = AnswerabilityChecker(f"{base}/best")
+    checker = AnswerabilityChecker(f"{base}/best", device=cfg["checker"].get("infer_device"))
 rets = {c: load_retriever(c, cfg, use_dense=dense, use_rerank=rerank) for c in sorted({t.collection for t in tasks})}
 system = AbstainRAG(QueryRewriter(mode, llm=llm, oracle=load_rewrites(d)), rets, llm=llm, checker=checker,
                     k=cfg["retrieval"]["final_k"])
 
 out = Path(cfg["data"]["output_dir"]); out.mkdir(exist_ok=True)
 path = out / f"{a.system}_{a.split}.jsonl"
-with open(path, "w") as f:
+with open(path, "w", encoding="utf-8") as f:
     for t in tqdm(tasks, desc=a.system):
         f.write(json.dumps(to_mtrag_prediction(raw[t.task_id], system(t, generate=not a.no_generate))) + "\n")
 print("wrote", path)

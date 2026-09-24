@@ -1,0 +1,57 @@
+# Laptop profile: 4 GB GPU (e.g. GTX 1650) + 16 GB RAM. Same experiments, smaller models.
+# Differences from default.yaml are marked with  # <- laptop
+
+# ---- paths ----
+data:
+  mtrag_dir: data/mt-rag-benchmark        # created by scripts/setup_data.sh
+  index_dir: indexes
+  output_dir: outputs
+
+# ---- turn buckets used for abstention-drift analysis ----
+eval:
+  buckets: [[1, 2], [3, 5], [6, 99]]       # early / mid / late
+  bucket_names: [early, mid, late]
+  n_boot: 1000                            # bootstrap resamples (by conversation)
+  seed: 13
+
+# ---- retrieval ----
+retrieval:
+  bm25_top_k: 100
+  dense_model: BAAI/bge-small-en-v1.5
+  dense_top_k: 100
+  rrf_k: 60
+  reranker_model: BAAI/bge-reranker-base
+  rerank_top_n: 30                 # <- laptop
+  final_k: 5
+  encode_batch_size: 64            # <- laptop: dense index build fits in 4 GB
+  reranker_max_length: 384         # <- laptop
+  reranker_device: null            # null = GPU if available (fp16)
+  query_device: null
+
+# ---- query rewriting: last_turn | full_history | oracle | llm ----
+rewrite:
+  mode: llm
+
+# ---- shared LLM (rewriter + generator) ----
+llm:
+  model: Qwen/Qwen2.5-3B-Instruct   # <- laptop (7B 4-bit needs ~6 GB)
+  load_in_4bit: true
+  max_new_tokens: 200
+
+# ---- answerability checker ----
+checker:
+  model: microsoft/deberta-v3-base
+  max_length: 384                  # <- laptop
+  epochs: 3
+  lr: 2.0e-5
+  batch_size: 4                    # <- laptop (effective batch 16)
+  grad_accum: 4
+  infer_device: cpu                # <- laptop: keep the GPU for the LLM at inference time
+  max_false_abstention: 0.05   # threshold chosen so <=5% of answerable dev turns are refused
+  output_dir: checkpoints/checker
+
+# ---- synthetic unanswerables (evidence removal) ----
+synthetic:
+  k: 5
+  per_task: 1
+  seed: 13

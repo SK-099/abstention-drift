@@ -48,7 +48,8 @@ class AbstainRAG:
 
 def to_mtrag_prediction(task_json: dict, out: Output) -> dict:
     """Prediction row compatible with the official MTRAG evaluation scripts (Task C format)."""
-    row = {k: v for k, v in task_json.items() if k not in ("targets", "enrichments", "predictions", "contexts")}
+    # 'targets' is kept: the official MTRAG generation/algorithmic evaluators compare against it
+    row = {k: v for k, v in task_json.items() if k not in ("predictions", "contexts")}
     row["contexts"] = [{"document_id": p["document_id"], "text": p["text"], "title": p.get("title", ""),
                         "score": p.get("score", 0.0), "source": ""} for p in out.passages]
     row["predictions"] = [{"text": out.answer}]

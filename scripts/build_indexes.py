@@ -27,5 +27,6 @@ for c in a.collections:
     BM25Index.build(store, d)
     if not a.no_dense:
         print(f"[{c}] dense ({cfg['retrieval']['dense_model']}) ...", flush=True)
-        DenseIndex.build(store, cfg["retrieval"]["dense_model"], d)
+        DenseIndex.build(store, cfg["retrieval"]["dense_model"], d,
+                         batch_size=cfg["retrieval"].get("encode_batch_size", 256))
     print(f"[{c}] done -> {d}")

@@ -17,8 +17,8 @@ ap.add_argument("--set", nargs="*", default=[], help="config overrides, e.g. --s
 a = ap.parse_args()
 cfg = load_config(a.config, a.set)
 out = cfg["data"]["output_dir"]
-train = [json.loads(l) for l in open(f"{out}/checker_train.jsonl")]
-dev = [json.loads(l) for l in open(f"{out}/checker_dev.jsonl")]
+train = [json.loads(l) for l in open(f"{out}/checker_train.jsonl", encoding="utf-8")]
+dev = [json.loads(l) for l in open(f"{out}/checker_dev.jsonl", encoding="utf-8")]
 if a.real_only:
     train = [e for e in train if e["kind"] == "real"]
     cfg["checker"]["output_dir"] += "-real"

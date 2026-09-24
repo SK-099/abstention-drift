@@ -62,14 +62,14 @@ class BM25Index:
         r = bm25s.BM25()
         r.index(bm25s.tokenize(texts, stopwords="en", show_progress=False), show_progress=False)
         r.save(str(out_dir / "bm25"))
-        json.dump(ids, open(out_dir / "bm25_ids.json", "w"))
+        json.dump(ids, open(out_dir / "bm25_ids.json", "w", encoding="utf-8"))
         return cls(r, ids)
 
     @classmethod
     def load(cls, d: Path) -> "BM25Index":
         import bm25s
 
-        return cls(bm25s.BM25.load(str(d / "bm25")), json.load(open(d / "bm25_ids.json")))
+        return cls(bm25s.BM25.load(str(d / "bm25")), json.load(open(d / "bm25_ids.json", encoding="utf-8")))
 
     def search(self, query: str, k: int = 100) -> list[str]:
         import bm25s
@@ -81,10 +81,10 @@ class BM25Index:
 
 
 class DenseIndex:
-    def __init__(self, model_name: str, index, ids):
+    def __init__(self, model_name: str, index, ids, device: str | None = None):
         from sentence_transformers import SentenceTransformer
 
-        self.model, self.index, self.ids = SentenceTransformer(model_name), index, ids
+        self.model, self.index, self.ids = SentenceTransformer(model_name, device=device), index, ids
 
     @classmethod
     def build(cls, store: PassageStore, model_name: str, out_dir: Path, batch_size: int = 256) -> "DenseIndex":
@@ -98,14 +98,15 @@ class DenseIndex:
         index = faiss.IndexFlatIP(emb.shape[1])
         index.add(emb)
         faiss.write_index(index, str(out_dir / "dense.faiss"))
-        json.dump(ids, open(out_dir / "dense_ids.json", "w"))
+        json.dump(ids, open(out_dir / "dense_ids.json", "w", encoding="utf-8"))
         return cls(model_name, index, ids)
 
     @classmethod
-    def load(cls, d: Path, model_name: str) -> "DenseIndex":
+    def load(cls, d: Path, model_name: str, device: str | None = None) -> "DenseIndex":
         import faiss
 
-        return cls(model_name, faiss.read_index(str(d / "dense.faiss")), json.load(open(d / "dense_ids.json")))
+        return cls(model_name, faiss.read_index(str(d / "dense.faiss")),
+                   json.load(open(d / "dense_ids.json", encoding="utf-8")), device)
 
     def search(self, query: str, k: int = 100) -> list[str]:
         q = self.model.encode([BGE_QUERY_PREFIX + query], normalize_embeddings=True).astype(np.float32)
@@ -114,10 +115,13 @@ class DenseIndex:
 
 
 class Reranker:
-    def __init__(self, model_name: str):
+    def __init__(self, model_name: str, device: str | None = None, max_length: int = 512):
+        import torch
         from sentence_transformers import CrossEncoder
 
-        self.m = CrossEncoder(model_name, max_length=512)
+        on_gpu = torch.cuda.is_available() and device != "cpu"
+        kw = {"model_kwargs": {"torch_dtype": torch.float16}} if on_gpu else {}   # halves VRAM on small GPUs
+        self.m = CrossEncoder(model_name, max_length=max_length, device=device, **kw)
 
     def rerank(self, query: str, passages: list[dict]) -> list[dict]:
         if not passages:
@@ -164,7 +168,8 @@ def load_retriever(collection: str, cfg: dict, use_bm25=True, use_dense=True, us
     return HybridRetriever(
         collection, PassageStore.load(d),
         bm25=BM25Index.load(d) if use_bm25 else None,
-        dense=DenseIndex.load(d, r["dense_model"]) if use_dense else None,
-        reranker=Reranker(r["reranker_model"]) if use_rerank else None,
+        dense=DenseIndex.load(d, r["dense_model"], r.get("query_device")) if use_dense else None,
+        reranker=Reranker(r["reranker_model"], r.get("reranker_device"), r.get("reranker_max_length", 512))
+        if use_rerank else None,
         cfg=r,
     )

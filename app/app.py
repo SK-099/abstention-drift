@@ -31,7 +31,7 @@ checker = None
 ckpt = os.environ.get("CHECKER", cfg["checker"]["output_dir"] + "/best")
 if Path(ckpt).exists():
     from abstain.checker import AnswerabilityChecker
-    checker = AnswerabilityChecker(ckpt)
+    checker = AnswerabilityChecker(ckpt, device=cfg["checker"].get("infer_device"))
 system = AbstainRAG(QueryRewriter("llm", llm=llm), retrievers, llm=llm, checker=checker, k=cfg["retrieval"]["final_k"])
 
 

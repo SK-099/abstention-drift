@@ -17,6 +17,8 @@ bitsandbytes>=0.43
 sentence-transformers>=3.0
 faiss-cpu>=1.8
 datasets>=2.20
+sentencepiece        # DeBERTa-v3 tokenizer
+protobuf
 
 # demo
 gradio>=4.40,<6
