@@ -81,7 +81,7 @@ Times are rough estimates for a GTX 1650. The generation runs are the long part,
 $C = "--config", "configs\laptop.yaml"
 New-Item -ItemType Directory -Force logs | Out-Null
 
-# 4.1 Indexes for all 4 domains (~366K passages)            ~45-60 min
+# 4.1 Indexes for all 4 domains (~366K passages)            ~1-2 h (FiQA alone ~10-20 min)
 python scripts\build_indexes.py @C *> logs\indexes.log
 
 # 4.2 Checker data with LLM rewrites                          ~30-45 min

@@ -11,7 +11,7 @@ pytest
 
 # GPU parts (dense retrieval, reranking, LLM, checker training)
 torch>=2.2
-transformers>=4.44
+transformers>=4.56   # uses the dtype= argument
 accelerate>=0.33
 bitsandbytes>=0.43
 sentence-transformers>=3.0

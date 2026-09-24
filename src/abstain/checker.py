@@ -41,7 +41,9 @@ def train_checker(train: list[dict], dev: list[dict], cfg: dict) -> dict:
 
     c = cfg["checker"]
     tok = AutoTokenizer.from_pretrained(c["model"])
-    model = AutoModelForSequenceClassification.from_pretrained(c["model"], num_labels=2)
+    # transformers >= 5 loads weights in their stored dtype (dtype="auto"); some checkpoints are fp16.
+    # Mixed-precision training needs fp32 master weights, otherwise: "Attempting to unscale FP16 gradients".
+    model = AutoModelForSequenceClassification.from_pretrained(c["model"], num_labels=2).float()
 
     def enc(exs):
         a, b = zip(*[pair_text(e) for e in exs])
@@ -88,8 +90,11 @@ class AnswerabilityChecker:
         from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
         self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
+        if not Path(path).exists():
+            raise FileNotFoundError(f"No trained checker at '{path}'. Run scripts/train_checker.py first "
+                                    "(and --real-only for S3).")
         self.tok = AutoTokenizer.from_pretrained(path)
-        self.model = AutoModelForSequenceClassification.from_pretrained(path).to(self.device).eval()
+        self.model = AutoModelForSequenceClassification.from_pretrained(path).float().to(self.device).eval()
         th_file = Path(path) / "threshold.json"
         self.threshold = threshold if threshold is not None else (
             json.load(open(th_file, encoding="utf-8"))["threshold"] if th_file.exists() else 0.5)

@@ -84,15 +84,23 @@ class DenseIndex:
     def __init__(self, model_name: str, index, ids, device: str | None = None):
         from sentence_transformers import SentenceTransformer
 
+        import torch
+
         self.model, self.index, self.ids = SentenceTransformer(model_name, device=device), index, ids
+        if torch.cuda.is_available() and str(self.model.device).startswith("cuda"):
+            self.model.half()
 
     @classmethod
     def build(cls, store: PassageStore, model_name: str, out_dir: Path, batch_size: int = 256) -> "DenseIndex":
         import faiss
         from sentence_transformers import SentenceTransformer
 
+        import torch
+
         ids = store.ids()
         model = SentenceTransformer(model_name)
+        if torch.cuda.is_available():
+            model.half()                      # fp16 on GPU: ~2-3x faster, same retrieval quality
         emb = model.encode([store[i]["text"] for i in ids], batch_size=batch_size, normalize_embeddings=True,
                            show_progress_bar=True, convert_to_numpy=True).astype(np.float32)
         index = faiss.IndexFlatIP(emb.shape[1])
@@ -120,7 +128,7 @@ class Reranker:
         from sentence_transformers import CrossEncoder
 
         on_gpu = torch.cuda.is_available() and device != "cpu"
-        kw = {"model_kwargs": {"torch_dtype": torch.float16}} if on_gpu else {}   # halves VRAM on small GPUs
+        kw = {"model_kwargs": {"dtype": torch.float16}} if on_gpu else {}   # halves VRAM on small GPUs
         self.m = CrossEncoder(model_name, max_length=max_length, device=device, **kw)
 
     def rerank(self, query: str, passages: list[dict]) -> list[dict]:
