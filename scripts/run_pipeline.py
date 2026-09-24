@@ -52,8 +52,8 @@ tasks = [t for t in tasks if t.abstain_label is not None and (not a.collections 
 
 llm = None
 if mode == "llm" or not a.no_generate:
-    from abstain.llm import ChatLLM
-    llm = ChatLLM(cfg["llm"]["model"], cfg["llm"]["load_in_4bit"], cfg["llm"]["max_new_tokens"])
+    from abstain.llm import make_llm
+    llm = make_llm(cfg["llm"])
 checker = None
 if ckpt:
     from abstain.checker import AnswerabilityChecker

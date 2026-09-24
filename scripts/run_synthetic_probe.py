@@ -39,8 +39,8 @@ else:
     from abstain.data import Task
     from abstain.generate import generate_answer
     from abstain.idk import is_idk
-    from abstain.llm import ChatLLM
-    llm = ChatLLM(cfg["llm"]["model"], cfg["llm"]["load_in_4bit"], cfg["llm"]["max_new_tokens"])
+    from abstain.llm import make_llm
+    llm = make_llm(cfg["llm"])
     preds = []
     for e in tqdm(exs):
         # history is not stored in the example; use the rewritten standalone query as the question

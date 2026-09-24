@@ -50,6 +50,16 @@ python -c "import bitsandbytes, faiss, bm25s; print('bitsandbytes', bitsandbytes
 
 Every new PowerShell window: `F:` → `cd F:\NLP\abstention-drift` → `.\.venv\Scripts\Activate.ps1`.
 
+## 1b. Ollama for the LLM (recommended on 4 GB)
+
+With transformers + bitsandbytes 4-bit, the 3B model managed about 160 s per task on a GTX 1650, which is too slow for ~430 tasks x 5 systems. `configs/laptop.yaml` therefore uses **Ollama** (llama.cpp, GGUF 4-bit) for rewriting and answering. Retrieval, re-ranking and the checker are unchanged.
+
+1. Install Ollama for Windows from https://ollama.com/download. It runs in the background (tray icon).
+2. Move its model store to F: (optional, ~2 GB): `setx OLLAMA_MODELS "F:\NLP\ollama_models"`, then quit and restart Ollama from the tray.
+3. In any prompt: `ollama pull qwen2.5:3b`, then check it with `ollama run qwen2.5:3b "Say hi"` (type `/bye` to exit).
+
+To use the Hugging Face backend instead, add `--set llm.backend=hf`.
+
 ## 2. Data and quick checks (5 minutes)
 
 ```powershell

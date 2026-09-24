@@ -35,8 +35,8 @@ train, dev = conversation_split(tasks, 0.2, cfg["synthetic"]["seed"])
 
 llm = None
 if a.rewrite == "llm" or a.verify_llm:
-    from abstain.llm import ChatLLM
-    llm = ChatLLM(cfg["llm"]["model"], cfg["llm"]["load_in_4bit"])
+    from abstain.llm import make_llm
+    llm = make_llm(cfg["llm"])
 rewriter = QueryRewriter(a.rewrite, llm=llm, oracle=load_rewrites(cfg["data"]["mtrag_dir"]))
 rets = {c: load_retriever(c, cfg, use_dense=not a.no_dense, use_rerank=not a.no_rerank)
         for c in sorted({t.collection for t in tasks})}

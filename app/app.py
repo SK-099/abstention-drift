@@ -17,14 +17,16 @@ import gradio as gr  # noqa: E402
 
 from abstain.config import load_config  # noqa: E402
 from abstain.data import Task  # noqa: E402
-from abstain.llm import ChatLLM  # noqa: E402
+from abstain.llm import make_llm  # noqa: E402
 from abstain.pipeline import AbstainRAG  # noqa: E402
 from abstain.retrieval import load_retriever  # noqa: E402
 from abstain.rewrite import QueryRewriter  # noqa: E402
 
 cfg = load_config(os.environ.get("CONFIG", "configs/default.yaml"))
 COLLECTIONS = [c for c in ("fiqa", "govt", "cloud", "clapnq") if (Path(cfg["data"]["index_dir"]) / c).exists()]
-llm = ChatLLM(os.environ.get("LLM", cfg["llm"]["model"]), cfg["llm"]["load_in_4bit"], cfg["llm"]["max_new_tokens"])
+if os.environ.get("LLM"):
+    cfg["llm"]["model"] = cfg["llm"]["ollama_model"] = os.environ["LLM"]
+llm = make_llm(cfg["llm"])
 retrievers = {c: load_retriever(c, cfg, use_dense=os.environ.get("DENSE", "1") == "1",
                                 use_rerank=os.environ.get("RERANK", "1") == "1") for c in COLLECTIONS}
 checker = None
