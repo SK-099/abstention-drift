@@ -65,7 +65,14 @@ system = AbstainRAG(QueryRewriter(mode, llm=llm, oracle=load_rewrites(d)), rets,
 
 out = Path(cfg["data"]["output_dir"]); out.mkdir(exist_ok=True)
 path = out / f"{a.system}_{a.split}.jsonl"
+from collections import defaultdict  # noqa: E402
+
+totals, counts = defaultdict(float), defaultdict(int)
 with open(path, "w", encoding="utf-8") as f:
     for t in tqdm(tasks, desc=a.system):
-        f.write(json.dumps(to_mtrag_prediction(raw[t.task_id], system(t, generate=not a.no_generate))) + "\n")
+        o = system(t, generate=not a.no_generate)
+        for k, v in o.timings.items():
+            totals[k] += v; counts[k] += 1
+        f.write(json.dumps(to_mtrag_prediction(raw[t.task_id], o)) + "\n")
 print("wrote", path)
+print("mean seconds per task by stage:", {k: round(totals[k] / counts[k], 2) for k in totals})

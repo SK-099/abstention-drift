@@ -56,7 +56,7 @@ class OllamaLLM:
 
     def chat(self, messages: list[dict], max_new_tokens: int | None = None) -> str:
         r = self.s.post(f"{self.url}/api/chat", timeout=self.timeout, json={
-            "model": self.model, "messages": messages, "stream": False,
+            "model": self.model, "messages": messages, "stream": False, "keep_alive": "60m",
             # greedy decoding for reproducibility; num_ctx must fit 5 passages (Ollama's default is small)
             "options": {"temperature": 0, "seed": 13, "num_predict": max_new_tokens or self.max_new_tokens,
                         "num_ctx": self.num_ctx},

@@ -9,7 +9,8 @@ Systems compared in the paper (see README, 'Experiments'):
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+import time
+from dataclasses import dataclass, field
 
 from .data import Task
 from .generate import generate_answer
@@ -25,6 +26,7 @@ class Output:
     abstained: bool
     answer: str
     abstained_by: str            # checker | generator | none
+    timings: dict = field(default_factory=dict)   # seconds per stage
 
 
 class AbstainRAG:
@@ -32,18 +34,23 @@ class AbstainRAG:
         self.rewriter, self.retrievers, self.llm, self.checker, self.k = rewriter, retrievers, llm, checker, k
 
     def __call__(self, task: Task, generate: bool = True) -> Output:
+        tm, t0 = {}, time.perf_counter()
         query = self.rewriter(task)
+        tm["rewrite"], t0 = time.perf_counter() - t0, time.perf_counter()
         passages = self.retrievers[task.collection].search(query, k=self.k)
+        tm["retrieve"], t0 = time.perf_counter() - t0, time.perf_counter()
         p_un = None
         if self.checker is not None:
             p_un = self.checker(query, passages)
+            tm["check"], t0 = time.perf_counter() - t0, time.perf_counter()
             if p_un >= self.checker.threshold:
-                return Output(task.task_id, query, passages, p_un, True, IDK_RESPONSE, "checker")
+                return Output(task.task_id, query, passages, p_un, True, IDK_RESPONSE, "checker", tm)
         if not generate or self.llm is None:
-            return Output(task.task_id, query, passages, p_un, False, "", "none")
+            return Output(task.task_id, query, passages, p_un, False, "", "none", tm)
         ans = generate_answer(self.llm, task, passages)
+        tm["generate"] = time.perf_counter() - t0
         refused = is_idk(ans)
-        return Output(task.task_id, query, passages, p_un, refused, ans, "generator" if refused else "none")
+        return Output(task.task_id, query, passages, p_un, refused, ans, "generator" if refused else "none", tm)
 
 
 def to_mtrag_prediction(task_json: dict, out: Output) -> dict:
