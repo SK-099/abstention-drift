@@ -37,7 +37,9 @@ llm = None
 if a.rewrite == "llm" or a.verify_llm:
     from abstain.llm import make_llm
     llm = make_llm(cfg["llm"])
-rewriter = QueryRewriter(a.rewrite, llm=llm, oracle=load_rewrites(cfg["data"]["mtrag_dir"]))
+from abstain.pipeline import prompt_limits  # noqa: E402
+
+rewriter = QueryRewriter(a.rewrite, llm=llm, oracle=load_rewrites(cfg["data"]["mtrag_dir"]), **prompt_limits(cfg["llm"])[0])
 rets = {c: load_retriever(c, cfg, use_dense=not a.no_dense, use_rerank=not a.no_rerank)
         for c in sorted({t.collection for t in tasks})}
 

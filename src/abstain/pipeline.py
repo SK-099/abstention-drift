@@ -13,6 +13,12 @@ import time
 from dataclasses import dataclass, field
 
 from .data import Task
+
+
+def prompt_limits(llm_cfg: dict) -> tuple[dict, dict]:
+    """(rewriter kwargs, generator kwargs) from the `llm:` config block."""
+    h = {"history_turns": llm_cfg.get("history_turns", 6), "history_chars": llm_cfg.get("history_chars")}
+    return h, dict(h, passage_chars=llm_cfg.get("passage_chars"))
 from .generate import generate_answer
 from .idk import IDK_RESPONSE, is_idk
 
@@ -30,8 +36,9 @@ class Output:
 
 
 class AbstainRAG:
-    def __init__(self, rewriter, retrievers: dict, llm=None, checker=None, k: int = 5):
+    def __init__(self, rewriter, retrievers: dict, llm=None, checker=None, k: int = 5, gen_kwargs: dict | None = None):
         self.rewriter, self.retrievers, self.llm, self.checker, self.k = rewriter, retrievers, llm, checker, k
+        self.gen_kwargs = gen_kwargs or {}
 
     def __call__(self, task: Task, generate: bool = True) -> Output:
         tm, t0 = {}, time.perf_counter()
@@ -47,7 +54,7 @@ class AbstainRAG:
                 return Output(task.task_id, query, passages, p_un, True, IDK_RESPONSE, "checker", tm)
         if not generate or self.llm is None:
             return Output(task.task_id, query, passages, p_un, False, "", "none", tm)
-        ans = generate_answer(self.llm, task, passages)
+        ans = generate_answer(self.llm, task, passages, **self.gen_kwargs)
         tm["generate"] = time.perf_counter() - t0
         refused = is_idk(ans)
         return Output(task.task_id, query, passages, p_un, refused, ans, "generator" if refused else "none", tm)

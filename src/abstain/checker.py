@@ -85,11 +85,13 @@ def train_checker(train: list[dict], dev: list[dict], cfg: dict) -> dict:
 
 
 class AnswerabilityChecker:
-    def __init__(self, path: str, threshold: float | None = None, device: str | None = None):
+    def __init__(self, path: str, threshold: float | None = None, device: str | None = None,
+                 max_length: int = 512):
         import torch
         from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
         self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
+        self.max_length = max_length
         if not Path(path).exists():
             raise FileNotFoundError(f"No trained checker at '{path}'. Run scripts/train_checker.py first "
                                     "(and --real-only for S3).")
@@ -99,9 +101,10 @@ class AnswerabilityChecker:
         self.threshold = threshold if threshold is not None else (
             json.load(open(th_file, encoding="utf-8"))["threshold"] if th_file.exists() else 0.5)
 
-    def predict_proba(self, examples: list[dict], batch_size: int = 16, max_length: int = 512) -> np.ndarray:
+    def predict_proba(self, examples: list[dict], batch_size: int = 16, max_length: int | None = None) -> np.ndarray:
         import torch
 
+        max_length = max_length or self.max_length
         probs = []
         for i in range(0, len(examples), batch_size):
             a, b = zip(*[pair_text(e) for e in examples[i:i + batch_size]])

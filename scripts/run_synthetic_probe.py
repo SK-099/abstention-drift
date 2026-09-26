@@ -32,7 +32,8 @@ exs = [json.loads(l) for l in open(out_dir / "checker_dev.jsonl", encoding="utf-
 
 if a.who == "checker":
     from abstain.checker import AnswerabilityChecker
-    ch = AnswerabilityChecker(a.ckpt or cfg["checker"]["output_dir"] + "/best", device=cfg["checker"].get("infer_device"))
+    ch = AnswerabilityChecker(a.ckpt or cfg["checker"]["output_dir"] + "/best", device=cfg["checker"].get("infer_device"),
+                                     max_length=cfg["checker"].get("max_length", 512))
     probs = ch.predict_proba(exs)
     preds = [int(p >= ch.threshold) for p in probs]
 else:
@@ -41,11 +42,13 @@ else:
     from abstain.idk import is_idk
     from abstain.llm import make_llm
     llm = make_llm(cfg["llm"])
+    from abstain.pipeline import prompt_limits
+    gen_kw = prompt_limits(cfg["llm"])[1]
     preds = []
     for e in tqdm(exs):
         # history is not stored in the example; use the rewritten standalone query as the question
         t = Task(e["task_id"], e["conversation_id"], e["turn"], e["collection"], [], e["query"], "")
-        preds.append(int(is_idk(generate_answer(llm, t, e["passages"]))))
+        preds.append(int(is_idk(generate_answer(llm, t, e["passages"], **gen_kw))))
 
 path = out_dir / f"probe_{a.who}.jsonl"
 with open(path, "w", encoding="utf-8") as f:

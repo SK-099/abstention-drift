@@ -21,10 +21,10 @@ retrieval:
   dense_top_k: 100
   rrf_k: 60
   reranker_model: BAAI/bge-reranker-base
-  rerank_top_n: 30                 # <- laptop
+  rerank_top_n: 15                 # <- laptop
   final_k: 5
   encode_batch_size: 64            # <- laptop: dense index build fits in 4 GB
-  reranker_max_length: 384         # <- laptop
+  reranker_max_length: 256         # <- laptop
   reranker_device: null            # null = GPU if available (fp16)
   query_device: null
 
@@ -38,10 +38,14 @@ llm:
                                    #    bitsandbytes 4-bit on a GTX 1650. Needs: ollama pull qwen2.5:3b
   ollama_model: qwen2.5:3b         # Qwen2.5-3B-Instruct, Q4_K_M (~1.9 GB)
   ollama_url: http://localhost:11434
-  num_ctx: 8192                    # 5 passages + history; Ollama's default context is too small
+  num_ctx: 4096                    # <- laptop: enough after the prompt limits below
   model: Qwen/Qwen2.5-3B-Instruct  # used when backend: hf   # <- laptop (7B 4-bit needs ~6 GB)
   load_in_4bit: true
-  max_new_tokens: 160
+  max_new_tokens: 128              # <- laptop
+  # prompt limits: on a GTX 1650 reading the prompt (~150 tokens/s) dominates latency
+  passage_chars: 1000              # <- laptop: each of the 5 passages cut to ~220 tokens
+  history_turns: 3                 # <- laptop: last 3 exchanges only
+  history_chars: 400               # <- laptop: each earlier message cut to ~90 tokens
 
 # ---- answerability checker ----
 checker:

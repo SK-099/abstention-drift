@@ -18,7 +18,7 @@ import gradio as gr  # noqa: E402
 from abstain.config import load_config  # noqa: E402
 from abstain.data import Task  # noqa: E402
 from abstain.llm import make_llm  # noqa: E402
-from abstain.pipeline import AbstainRAG  # noqa: E402
+from abstain.pipeline import AbstainRAG, prompt_limits  # noqa: E402
 from abstain.retrieval import load_retriever  # noqa: E402
 from abstain.rewrite import QueryRewriter  # noqa: E402
 
@@ -33,8 +33,11 @@ checker = None
 ckpt = os.environ.get("CHECKER", cfg["checker"]["output_dir"] + "/best")
 if Path(ckpt).exists():
     from abstain.checker import AnswerabilityChecker
-    checker = AnswerabilityChecker(ckpt, device=cfg["checker"].get("infer_device"))
-system = AbstainRAG(QueryRewriter("llm", llm=llm), retrievers, llm=llm, checker=checker, k=cfg["retrieval"]["final_k"])
+    checker = AnswerabilityChecker(ckpt, device=cfg["checker"].get("infer_device"),
+                                     max_length=cfg["checker"].get("max_length", 512))
+rw_kw, gen_kw = prompt_limits(cfg["llm"])
+system = AbstainRAG(QueryRewriter("llm", llm=llm, **rw_kw), retrievers, llm=llm, checker=checker,
+                    k=cfg["retrieval"]["final_k"], gen_kwargs=gen_kw)
 
 
 def meter(p):

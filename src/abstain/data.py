@@ -149,6 +149,10 @@ def turn_bucket(turn: int, buckets: list[list[int]], names: list[str]) -> str:
     return names[-1]
 
 
-def format_history(history: list[dict], max_turns: int = 6) -> str:
+def format_history(history: list[dict], max_turns: int = 6, max_chars: int | None = None) -> str:
+    """Last `max_turns` user+assistant exchanges; each message cut to `max_chars` (keeps prompts short)."""
     h = history[-2 * max_turns:]
-    return "\n".join(f"{'User' if t['speaker'] == 'user' else 'Assistant'}: {t['text']}" for t in h)
+
+    def cut(x: str) -> str:
+        return x if not max_chars or len(x) <= max_chars else x[:max_chars].rsplit(" ", 1)[0] + " ..."
+    return "\n".join(f"{'User' if t['speaker'] == 'user' else 'Assistant'}: {cut(t['text'])}" for t in h)

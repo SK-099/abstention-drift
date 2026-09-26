@@ -14,7 +14,7 @@ from tqdm import tqdm
 
 from abstain.config import load_config
 from abstain.data import conversation_split, load_benchmark, load_rewrites
-from abstain.pipeline import AbstainRAG, to_mtrag_prediction
+from abstain.pipeline import AbstainRAG, prompt_limits, to_mtrag_prediction
 from abstain.retrieval import load_retriever
 from abstain.rewrite import QueryRewriter
 
@@ -58,10 +58,12 @@ checker = None
 if ckpt:
     from abstain.checker import AnswerabilityChecker
     base = cfg["checker"]["output_dir"] + ("-real" if ckpt == "real" else "")
-    checker = AnswerabilityChecker(f"{base}/best", device=cfg["checker"].get("infer_device"))
+    checker = AnswerabilityChecker(f"{base}/best", device=cfg["checker"].get("infer_device"),
+                                     max_length=cfg["checker"].get("max_length", 512))
 rets = {c: load_retriever(c, cfg, use_dense=dense, use_rerank=rerank) for c in sorted({t.collection for t in tasks})}
-system = AbstainRAG(QueryRewriter(mode, llm=llm, oracle=load_rewrites(d)), rets, llm=llm, checker=checker,
-                    k=cfg["retrieval"]["final_k"])
+rw_kw, gen_kw = prompt_limits(cfg["llm"])
+system = AbstainRAG(QueryRewriter(mode, llm=llm, oracle=load_rewrites(d), **rw_kw), rets, llm=llm, checker=checker,
+                    k=cfg["retrieval"]["final_k"], gen_kwargs=gen_kw)
 
 out = Path(cfg["data"]["output_dir"]); out.mkdir(exist_ok=True)
 path = out / f"{a.system}_{a.split}.jsonl"

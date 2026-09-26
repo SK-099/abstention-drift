@@ -9,9 +9,10 @@ All commands are for **PowerShell**, run from `F:\NLP\abstention-drift`. Use `co
 |---|---|---|
 | LLM (rewrite + answer) | Qwen2.5-7B-Instruct, 4-bit | **Qwen2.5-3B-Instruct**, 4-bit (~2.2 GB VRAM) |
 | Precision | bf16 | **fp16** (GTX 16xx has no bf16; chosen automatically) |
-| Re-ranker | bge-reranker-base, top 50 | same model in fp16, top 30, 384 tokens |
+| Re-ranker | bge-reranker-base, top 50 | same model in fp16, top 15, 256 tokens |
 | Checker | DeBERTa-v3-base, batch 8 × 2 | same model, batch 4 × 4, 384 tokens; inference on CPU |
 | Dense index build | batch 256 | batch 64 |
+| LLM prompts | full history, full passages | last 3 exchanges (400 chars each), passages cut to 1000 chars, 128 new tokens |
 
 The research questions and systems S0–S4 are unchanged. If you later get a bigger GPU (Kaggle or Colab), rerun the final tables with `configs/default.yaml` (7B).
 
@@ -59,6 +60,8 @@ With transformers + bitsandbytes 4-bit, the 3B model managed about 160 s per tas
 3. In any prompt: `ollama pull qwen2.5:3b`, then check it with `ollama run qwen2.5:3b "Say hi"` (type `/bye` to exit).
 
 To use the Hugging Face backend instead, add `--set llm.backend=hf`.
+
+Optional speed-up: quit Ollama from the tray, run `setx OLLAMA_FLASH_ATTENTION 1`, then start Ollama again. On a GTX 1650 the slow part is reading the prompt (about 150 tokens/s), so the laptop profile keeps prompts short.
 
 ## 2. Data and quick checks (5 minutes)
 
