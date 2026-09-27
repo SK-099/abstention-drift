@@ -64,3 +64,11 @@ def test_idk():
 
 def test_bucket():
     assert turn_bucket(7, [[1, 2], [3, 5], [6, 99]], ["e", "m", "l"]) == "l"
+
+
+def test_passage_examples_labels():
+    from abstain.checker import passage_examples
+    exs = [{"task_id": "a", "query": "q", "label": 0, "passages": [{"document_id": "g", "text": "x"}, {"document_id": "n", "text": "y"}]},
+           {"task_id": "b", "query": "q", "label": 1, "passages": [{"document_id": "g", "text": "x"}, {"document_id": "n", "text": "y"}]}]
+    out = passage_examples(exs, {"a": {"g"}})
+    assert [e["label"] for e in out] == [0, 1, 1]        # gold of answerable -> 0, non-gold skipped, unanswerable -> 1

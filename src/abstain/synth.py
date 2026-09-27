@@ -109,4 +109,4 @@ def _ex(t: Task, query: str, passages: list[dict], label: int, kind: str) -> dic
     return {"task_id": t.task_id, "conversation_id": t.conversation_id, "turn": t.turn,
             "collection": t.collection, "multi_turn": t.multi_turn, "query": query,
             "question": t.question, "passages": [{"document_id": p["document_id"], "text": p["text"]} for p in passages],
-            "label": label, "kind": kind}
+            "label": label, "kind": kind, "gold_ids": t.gold_ids}

@@ -50,6 +50,7 @@ llm:
 # ---- answerability checker ----
 checker:
   model: microsoft/deberta-v3-base
+  mode: passage                    # score each (question, passage) pair; P(unanswerable) = min over passages
   max_length: 384                  # <- laptop
   epochs: 3
   lr: 2.0e-5
