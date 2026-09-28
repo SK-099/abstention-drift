@@ -22,6 +22,7 @@ SYSTEMS = {  # rewrite, dense, rerank, checker (None | "real" = trained on real 
     "S0": ("last_turn", False, False, None),
     "S1": ("llm", False, False, None),
     "S2": ("llm", True, True, None),
+    "S2-rr": ("llm", True, True, "reranker"),      # training-free: threshold on the best re-ranker score
     "S3": ("llm", True, True, "real"),
     "S4": ("llm", True, True, "full"),
     "S4-oracle": ("oracle", True, True, "full"),   # upper bound: human rewrites
@@ -55,7 +56,10 @@ if mode == "llm" or not a.no_generate:
     from abstain.llm import make_llm
     llm = make_llm(cfg["llm"])
 checker = None
-if ckpt:
+if ckpt == "reranker":
+    from abstain.checker import RerankerScoreChecker
+    checker = RerankerScoreChecker(str(Path(cfg["checker"]["output_dir"]).parent / "reranker_checker.json"))
+elif ckpt:
     from abstain.checker import AnswerabilityChecker
     base = cfg["checker"]["output_dir"] + ("-real" if ckpt == "real" else "")
     checker = AnswerabilityChecker(f"{base}/best", device=cfg["checker"].get("infer_device"),

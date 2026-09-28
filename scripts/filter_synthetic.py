@@ -11,6 +11,7 @@ after an interruption.
 import argparse
 import json
 import shutil
+import time
 from collections import Counter
 from pathlib import Path
 
@@ -43,12 +44,21 @@ with open(cache_f, "a", encoding="utf-8") as cf:
         if not orig.exists():
             shutil.copy(f, orig)
         rows = [json.loads(l) for l in open(orig, encoding="utf-8")]
-        kept, dropped = [], Counter()
+        kept, dropped, failed = [], Counter(), 0
         for e in tqdm(rows, desc=split):
             if e["kind"] == "synthetic":
                 key = f"{e['task_id']}|{'|'.join(p['document_id'] for p in e['passages'])}"
                 if key not in cache:
-                    cache[key] = llm_still_answerable(llm, tasks[e["task_id"]], e["passages"])
+                    for attempt in range(4):          # Ollama occasionally returns HTTP 500; retry, then skip
+                        try:
+                            cache[key] = llm_still_answerable(llm, tasks[e["task_id"]], e["passages"])
+                            break
+                        except Exception as ex:
+                            print(f"\nLLM call failed ({ex}); retrying in 20 s")
+                            time.sleep(20)
+                    else:
+                        failed += 1                   # not cached: judged on the next run
+                        continue
                     cf.write(json.dumps({"key": key, "answerable": cache[key]}) + "\n")
                     cf.flush()
                 if cache[key]:
@@ -59,5 +69,6 @@ with open(cache_f, "a", encoding="utf-8") as cf:
             for e in kept:
                 fh.write(json.dumps(e) + "\n")
         n_syn = sum(e["kind"] == "synthetic" for e in rows)
-        print(f"{split}: synthetic {n_syn} -> kept {n_syn - sum(dropped.values())} "
-              f"(dropped as still answerable, by collection: {dict(dropped)}) | total rows {len(rows)} -> {len(kept)}")
+        print(f"{split}: synthetic {n_syn} -> kept {n_syn - sum(dropped.values()) - failed} "
+              f"(dropped as still answerable, by collection: {dict(dropped)}) | total rows {len(rows)} -> {len(kept)}"
+              + (f" | {failed} not judged (LLM errors): re-run to finish" if failed else ""))

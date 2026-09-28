@@ -168,3 +168,27 @@ class AnswerabilityChecker:
 
     def __call__(self, query: str, passages: list[dict]) -> float:
         return float(self.predict_proba([{"query": query, "passages": passages}])[0])
+
+
+def _unit(scores) -> np.ndarray:
+    """Re-ranker scores as probabilities (sentence-transformers already applies a sigmoid for 1-label models)."""
+    s = np.asarray(scores, float)
+    return s if s.size == 0 or (s.min() >= 0 and s.max() <= 1) else 1 / (1 + np.exp(-s))
+
+
+class RerankerScoreChecker:
+    """Training-free baseline: P(unanswerable) = 1 - max re-ranker relevance of the retrieved passages.
+    Uses the 'score' the cross-encoder re-ranker already attached to each passage, so it costs nothing."""
+
+    def __init__(self, path: str):
+        if not Path(path).exists():
+            raise FileNotFoundError(f"No re-ranker threshold at '{path}'. Run scripts/fit_reranker_checker.py first.")
+        self.threshold = json.load(open(path, encoding="utf-8"))["threshold"]
+
+    @staticmethod
+    def p_unanswerable(scores) -> float:
+        s = _unit(scores)
+        return float(1 - s.max()) if s.size else 1.0
+
+    def __call__(self, query: str, passages: list[dict]) -> float:
+        return self.p_unanswerable([p.get("score", 0.0) for p in passages])

@@ -72,3 +72,10 @@ def test_passage_examples_labels():
            {"task_id": "b", "query": "q", "label": 1, "passages": [{"document_id": "g", "text": "x"}, {"document_id": "n", "text": "y"}]}]
     out = passage_examples(exs, {"a": {"g"}})
     assert [e["label"] for e in out] == [0, 1, 1]        # gold of answerable -> 0, non-gold skipped, unanswerable -> 1
+
+
+def test_reranker_score_checker():
+    from abstain.checker import RerankerScoreChecker
+    assert abs(RerankerScoreChecker.p_unanswerable([0.1, 0.9]) - 0.1) < 1e-9     # probabilities used as is
+    assert RerankerScoreChecker.p_unanswerable([-5.0, 3.0]) < 0.1                # logits squashed first
+    assert RerankerScoreChecker.p_unanswerable([]) == 1.0
