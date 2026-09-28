@@ -79,7 +79,15 @@ def train_checker(train: list[dict], dev: list[dict], cfg: dict, gold: dict[str,
     tok = AutoTokenizer.from_pretrained(c["model"])
     # transformers >= 5 loads weights in their stored dtype (dtype="auto"); some checkpoints are fp16.
     # Mixed-precision training needs fp32 master weights, otherwise: "Attempting to unscale FP16 gradients".
-    model = AutoModelForSequenceClassification.from_pretrained(c["model"], num_labels=2).float()
+    from transformers import AutoConfig
+
+    # A cross-encoder re-ranker (1 relevance logit, e.g. BAAI/bge-reranker-base) is fine-tuned as is:
+    # P(passage does not answer) = 1 - sigmoid(logit), so training starts from the zero-shot re-ranker.
+    # Other encoders (e.g. DeBERTa) get a fresh 2-way head.
+    one_logit = AutoConfig.from_pretrained(c["model"]).num_labels == 1 and mode == "passage"
+    model = AutoModelForSequenceClassification.from_pretrained(c["model"], num_labels=1 if one_logit else 2).float()
+    print("checker model:", c["model"], "| head:", "re-ranker logit" if one_logit else "2-way",
+          "| device:", "cuda" if torch.cuda.is_available() else "CPU (slow!)")
 
     def enc(exs):
         a, b = zip(*[pair_text(e, max_chars) for e in exs])
@@ -95,7 +103,12 @@ def train_checker(train: list[dict], dev: list[dict], cfg: dict, gold: dict[str,
         def compute_loss(self, model, inputs, return_outputs=False, **kw):
             labels = inputs.pop("labels")
             out = model(**inputs)
-            loss = torch.nn.functional.cross_entropy(out.logits, labels, weight=w.to(out.logits.device))
+            if one_logit:   # relevance target = 1 - label; weight the minority class like the 2-way loss
+                t = 1.0 - labels.float()
+                wt = torch.where(labels == 1, w[1], w[0]).to(out.logits.device)
+                loss = torch.nn.functional.binary_cross_entropy_with_logits(out.logits[:, 0].float(), t, weight=wt)
+            else:
+                loss = torch.nn.functional.cross_entropy(out.logits, labels, weight=w.to(out.logits.device))
             return (loss, out) if return_outputs else loss
 
     import math
@@ -163,7 +176,9 @@ class AnswerabilityChecker:
             enc = self.tok(list(a), list(b), truncation="only_second", max_length=max_length,
                            padding=True, return_tensors="pt").to(self.device)
             with torch.no_grad():
-                probs.append(torch.softmax(self.model(**enc).logits, -1)[:, 1].cpu().numpy())
+                logits = self.model(**enc).logits.float()
+                p = 1 - torch.sigmoid(logits[:, 0]) if logits.shape[-1] == 1 else torch.softmax(logits, -1)[:, 1]
+                probs.append(p.cpu().numpy())
         return np.concatenate(probs) if probs else np.array([])
 
     def __call__(self, query: str, passages: list[dict]) -> float:

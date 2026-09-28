@@ -10,7 +10,7 @@ All commands are for **PowerShell**, run from `F:\NLP\abstention-drift`. Use `co
 | LLM (rewrite + answer) | Qwen2.5-7B-Instruct, 4-bit | **Qwen2.5-3B-Instruct**, 4-bit (~2.2 GB VRAM) |
 | Precision | bf16 | **fp16** (GTX 16xx has no bf16; chosen automatically) |
 | Re-ranker | bge-reranker-base, top 50 | same model in fp16, top 15, 256 tokens |
-| Checker | DeBERTa-v3-base, batch 8 × 2 | same model, batch 4 × 4, 384 tokens per (question, passage) pair; inference on CPU |
+| Checker | bge-reranker-base fine-tuned, 512 tokens per (question, passage) pair | same model, batch 8 × 2, 256 tokens; inference on CPU |
 | Dense index build | batch 256 | batch 64 |
 | LLM prompts | full history, full passages | last 3 exchanges (400 chars each), passages cut to 1000 chars, 128 new tokens |
 

@@ -33,11 +33,11 @@ llm:
 
 # ---- answerability checker ----
 checker:
-  model: microsoft/deberta-v3-base
+  model: BAAI/bge-reranker-base     # fine-tuned from the re-ranker (DeBERTa: microsoft/deberta-v3-base)
   mode: passage                    # score each (question, passage) pair; P(unanswerable) = min over passages
   max_length: 512
-  epochs: 3
-  lr: 2.0e-5
+  epochs: 2
+  lr: 1.0e-5
   batch_size: 8
   grad_accum: 2
   max_false_abstention: 0.05   # threshold chosen so <=5% of answerable dev turns are refused

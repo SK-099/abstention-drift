@@ -49,13 +49,13 @@ llm:
 
 # ---- answerability checker ----
 checker:
-  model: microsoft/deberta-v3-base
+  model: BAAI/bge-reranker-base     # fine-tuned from the re-ranker (DeBERTa: microsoft/deberta-v3-base)
   mode: passage                    # score each (question, passage) pair; P(unanswerable) = min over passages
-  max_length: 384                  # <- laptop
-  epochs: 3
-  lr: 2.0e-5
-  batch_size: 4                    # <- laptop (effective batch 16)
-  grad_accum: 4
+  max_length: 256                  # <- laptop (same as the re-ranker)
+  epochs: 2
+  lr: 1.0e-5
+  batch_size: 8                    # <- laptop (effective batch 16)
+  grad_accum: 2
   infer_device: cpu                # <- laptop: keep the GPU for the LLM at inference time
   max_false_abstention: 0.05   # threshold chosen so <=5% of answerable dev turns are refused
   output_dir: checkpoints/checker
