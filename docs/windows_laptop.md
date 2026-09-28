@@ -105,12 +105,13 @@ python scripts\make_checker_data.py @C --rewrite llm *> logs\checker_data.log
 python scripts\train_checker.py @C *> logs\train_S4.log
 python scripts\train_checker.py @C --real-only *> logs\train_S3.log
 
-# 4.4 Systems on the held-out MTRAG-UN test set               ~1-1.5 h per system
-foreach ($S in "S0", "S1", "S2", "S3", "S4") {
+# 4.4 Systems on the held-out MTRAG-UN test set              ~2-2.5 h per system
+foreach ($S in "S0", "S1", "S2") {
     python scripts\run_pipeline.py @C --system $S --split mtragun *> "logs\run_$S.log"
 }
-# optional upper bound with human rewrites:
-python scripts\run_pipeline.py @C --system S4-oracle --split mtragun *> logs\run_S4-oracle.log
+# S2-rr, S3, S4 = S2 + an answerability gate: derived from the S2 run in minutes (same outputs)
+python scripts\fit_reranker_checker.py @C
+python scripts\apply_checker.py @C *> logs\apply_checker.log
 
 # 4.5 Controlled drift probe (RQ1 with question type held fixed)
 python scripts\run_synthetic_probe.py @C --who checker
