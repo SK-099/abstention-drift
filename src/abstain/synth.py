@@ -42,14 +42,17 @@ def answer_support(target: str, passages: list[dict]) -> float:
 
 VERIFY_PROMPT = (
     "Question: {q}\n\nReference answer: {a}\n\nPassages:\n{p}\n\n"
-    "Do the passages contain enough information to give the reference answer (or an equivalent one)? "
+    "Do the passages contain the main information needed to answer the question, i.e. the key point "
+    "of the reference answer? Extra details of the reference answer may be missing. "
     "Reply with exactly one word: yes or no."
 )
 
 
-def llm_still_answerable(llm, task: Task, passages: list[dict]) -> bool:
-    """LLM check against the *reference answer* (easier and less biased than judging answerability blind)."""
-    ptxt = "\n\n".join(f"[{i + 1}] {p['text'][:800]}" for i, p in enumerate(passages))
+def llm_still_answerable(llm, task: Task, passages: list[dict], passage_chars: int = 1000) -> bool:
+    """LLM check against the *reference answer* (easier and less biased than judging answerability blind).
+    Near-duplicate pages (same site, same Wikipedia topic) often still answer after the gold document is
+    removed; those examples must be dropped, not labelled unanswerable."""
+    ptxt = "\n\n".join(f"[{i + 1}] {p['text'][:passage_chars]}" for i, p in enumerate(passages))
     msg = VERIFY_PROMPT.format(q=task.question, a=task.target[:600], p=ptxt)
     return llm.chat([{"role": "user", "content": msg}], max_new_tokens=3).strip().lower().startswith("yes")
 
