@@ -22,3 +22,8 @@ protobuf
 
 # demo
 gradio>=4.40,<6
+
+# agent (S5): LangGraph self-correcting abstention agent
+langgraph>=1.0,<2
+langchain-core>=1.0,<2
+langchain-ollama>=1.0,<2
