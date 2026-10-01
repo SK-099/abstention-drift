@@ -92,3 +92,10 @@ def test_cache_skips_first_attempt_llm_calls():
     out = agent(llm, Gate(weak=()))(task(), cache=cache)
     assert out.answer == "Cached answer." and out.query == "cached q"
     assert all("Proposed answer" in c or c.startswith("Passages") for c in llm.calls)   # only the self-check ran
+
+
+def test_selective_self_check_skips_confident_evidence():
+    out = agent(FakeLLM(checks=["no"]), Gate(weak=()), self_check_min_p=0.5)(task())   # p=0.1 < 0.5
+    assert out.decision == "answer" and "skipped" in out.trace[-1]
+    out = agent(FakeLLM(checks=["no"]), Gate(weak=()), self_check_min_p=0.05)(task())  # p=0.1 >= 0.05
+    assert out.decision == "abstain" and out.abstained_by == "self-check"

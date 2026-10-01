@@ -65,6 +65,12 @@ def _yes(text: str, default: bool) -> bool:
     return default          # unparseable judge output: fall back to the safe default
 
 
+def self_check_supported(llm, query: str, passages: list, answer: str, passage_chars: int | None = None) -> bool:
+    """LLM judge: is the answer's main claim supported by the passages? (unparseable output -> True)"""
+    msg = SELF_CHECK_PROMPT.format(p=format_passages(passages, passage_chars), q=query, a=answer[:800])
+    return _yes(llm.chat([{"role": "user", "content": msg}], max_new_tokens=3), default=True)
+
+
 # ----------------------------------------------------------------------------- LangChain wrappers
 class LangChainChat:
     """LangChain `ChatOllama` behind the `.chat(messages, max_new_tokens)` interface used by the
@@ -165,12 +171,15 @@ class AbstentionAgent:
 
     def __init__(self, llm, retriever, gate=None, threshold: float | None = None, max_retries: int = 1,
                  rewrite_kwargs: dict | None = None, gen_kwargs: dict | None = None,
-                 self_check: bool = True, clarify: bool = True):
+                 self_check: bool = True, clarify: bool = True, self_check_min_p: float = 0.0):
         from langgraph.graph import END, StateGraph
 
         self.llm, self.retriever, self.gate = llm, retriever, gate
         self.threshold = threshold if threshold is not None else getattr(gate, "threshold", 1.0)
         self.max_retries, self.self_check, self.clarify = max_retries, self_check, clarify
+        # selective self-check: only verify answers whose evidence the gate already doubts (p >= min_p);
+        # a 3B judge rejects most answers, so checking every answer causes heavy over-refusal
+        self.self_check_min_p = self_check_min_p
         self.rw_kw, self.gen_kw = rewrite_kwargs or {}, gen_kwargs or {}
         self.rewriter = QueryRewriter("llm", llm=llm, **self.rw_kw)
 
@@ -244,15 +253,15 @@ class AbstentionAgent:
 
     def _self_check(self, s: AgentState) -> dict:
         t0 = time.perf_counter()
-        ok = True
-        if self.self_check:
-            msg = SELF_CHECK_PROMPT.format(p=format_passages(s["passages"], self.gen_kw.get("passage_chars")),
-                                           q=s["query"], a=s["answer"][:800])
-            ok = _yes(self.llm.chat([{"role": "user", "content": msg}], max_new_tokens=3), default=True)
+        p = s.get("p")
+        run = self.self_check and (p is None or p >= self.self_check_min_p)
+        ok = self_check_supported(self.llm, s["query"], s["passages"], s["answer"],
+                                  self.gen_kw.get("passage_chars")) if run else True
         out = {"decision": "answer", "reason": "none"} if ok else \
               {"decision": "abstain", "reason": "self-check", "answer": IDK_RESPONSE}
-        out.update(trace=list(s["trace"]) + [f"self_check: {'supported' if ok else 'NOT supported -> abstain'}"],
-                   timings=self._tick(s, "self_check", t0))
+        msg = "skipped (p below min_p)" if self.self_check and not run else \
+              ("supported" if ok else "NOT supported -> abstain")
+        out.update(trace=list(s["trace"]) + [f"self_check: {msg}"], timings=self._tick(s, "self_check", t0))
         return out
 
     def _retry(self, s: AgentState) -> dict:

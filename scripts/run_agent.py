@@ -35,6 +35,9 @@ ap.add_argument("--gate", default="checker", choices=["checker", "reranker", "no
 ap.add_argument("--max-retries", type=int, default=1)
 ap.add_argument("--no-self-check", action="store_true")
 ap.add_argument("--no-clarify", action="store_true")
+ap.add_argument("--self-check-min-p", default="0",
+                help="only self-check answers whose gate score p >= this value; 'auto' reads the value chosen "
+                     "on dev by scripts/calibrate_self_check.py (checkpoints/self_check.json)")
 ap.add_argument("--live", action="store_true", help="do not reuse the S2/S4 runs (much slower)")
 ap.add_argument("--underspecified", action="store_true", help="also run the underspecified turns (live)")
 ap.add_argument("--name", default="S5-agent", help="output name (use a different one for ablations)")
@@ -72,13 +75,20 @@ elif a.gate == "reranker":
     rr = RerankerScoreChecker(str(Path(c["output_dir"]).parent / "reranker_checker.json"))
     gate = lambda q, ps: rr.p_unanswerable([p.get("score", 0.0) for p in ps])  # noqa: E731
     gate.threshold = rr.threshold
+if a.self_check_min_p == "auto":
+    f = Path(c["output_dir"]).parent / "self_check.json"
+    if not f.exists():
+        raise SystemExit(f"{f} not found: run scripts/calibrate_self_check.py first")
+    min_p = json.load(open(f, encoding="utf-8"))["min_p"]
+else:
+    min_p = float(a.self_check_min_p)
 rets = {col: load_retriever(col, cfg) for col in sorted({t.collection for t in main + under})}
 rw_kw, gen_kw = prompt_limits(cfg["llm"])
 agent = AbstentionAgent(llm, make_retriever(rets, cfg["retrieval"]["final_k"]), gate, max_retries=a.max_retries,
                         rewrite_kwargs=rw_kw, gen_kwargs=gen_kw, self_check=not a.no_self_check,
-                        clarify=not a.no_clarify)
+                        clarify=not a.no_clarify, self_check_min_p=min_p)
 print(f"agent: gate={a.gate} (tau={agent.threshold:.3f}), max_retries={a.max_retries}, "
-      f"self_check={not a.no_self_check}, clarify={not a.no_clarify}, mode={'live' if a.live else 'reuse S2'}")
+      f"self_check={not a.no_self_check} (p >= {min_p:.3f}), clarify={not a.no_clarify}, mode={'live' if a.live else 'reuse S2'}")
 
 # ---------------------------------------------------------------- caches from S2 / S4 (fast mode)
 cache = {}

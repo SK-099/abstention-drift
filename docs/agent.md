@@ -44,3 +44,14 @@ python scripts\run_agent.py @C --no-self-check --name S5-noselfcheck
 python scripts\run_agent.py @C --max-retries 0 --name S5-noretry
 python scripts\run_agent.py @C --gate reranker --name S5-rr
 ```
+
+## Selective self-check (calibrated on dev)
+
+Checking every answer made the 3B judge reject 66% of correct answers (FA .708). The agent therefore
+self-checks only answers whose gate score is already doubtful (p >= min_p). min_p is chosen on the
+MTRAG dev examples, never on MTRAG-UN:
+
+```powershell
+python scripts\calibrate_self_check.py @C                                  # ~40 min, writes checkpoints\self_check.json
+python scripts\run_agent.py @C --self-check-min-p auto --name S5-selective  # ~1 h
+```
