@@ -1,4 +1,5 @@
 """Detect 'I don't know' style responses in generated text."""
+
 import re
 
 # Same wording as MTRAG's reference answers for unanswerable turns.
@@ -13,9 +14,11 @@ _PATTERNS = [
     r"\bnot (mentioned|specified|covered|stated) in the (passages|documents|context)",
 ]
 _RX = re.compile("|".join(_PATTERNS), re.IGNORECASE)
+# LLMs often write typographic apostrophes ("don\u2019t"): normalise them before matching.
+_APOS = str.maketrans({"\u2019": "'", "\u2018": "'", "\u02bc": "'", "\u2032": "'"})
 
 
 def is_idk(text: str) -> bool:
     """True if the response is (mainly) a refusal. Only the first 200 chars are checked,
     so a real answer that merely *mentions* missing detail later is not counted."""
-    return bool(_RX.search((text or "")[:200]))
+    return bool(_RX.search((text or "")[:200].translate(_APOS)))
