@@ -111,3 +111,11 @@ def test_identical_retry_query_skips_second_search():
     out = agent(SameQueryLLM(), Gate(weak=("first query",)))(task())
     assert out.decision == "abstain" and out.attempts == 1
     assert sum(t.startswith("retrieve") for t in out.trace) == 1     # no second retrieval
+
+
+def test_clarify_min_turn_abstains_on_early_turns():
+    weak = Gate(weak=("first query", "retry query"))
+    out = agent(FakeLLM(ambiguous="yes"), weak, clarify_min_turn=4)(task())        # task() is turn 3
+    assert out.decision == "abstain" and out.trace[-1] == "abstain"
+    out = agent(FakeLLM(ambiguous="yes"), weak, clarify_min_turn=3)(task())
+    assert out.decision == "clarify"

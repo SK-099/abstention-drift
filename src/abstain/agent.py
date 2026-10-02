@@ -189,7 +189,7 @@ class AbstentionAgent:
 
     def __init__(self, llm, retriever, gate=None, threshold: float | None = None, max_retries: int = 1,
                  rewrite_kwargs: dict | None = None, gen_kwargs: dict | None = None,
-                 self_check: bool = True, clarify: bool = True, self_check_min_p: float = 0.0,
+                 self_check: bool = True, clarify: bool = True, self_check_min_p: float = 0.0, clarify_min_turn: int = 1,
                  checkpointer=None):
         """checkpointer: optional LangGraph checkpointer (e.g. PostgresSaver) that persists the agent
         state per conversation thread; pass thread_id when calling the agent."""
@@ -198,6 +198,7 @@ class AbstentionAgent:
         self.llm, self.retriever, self.gate = llm, retriever, gate
         self.threshold = threshold if threshold is not None else getattr(gate, "threshold", 1.0)
         self.max_retries, self.self_check, self.clarify = max_retries, self_check, clarify
+        self.clarify_min_turn = clarify_min_turn   # ask clarifying questions only from this user turn on
         # selective self-check: only verify answers whose evidence the gate already doubts (p >= min_p);
         # a 3B judge rejects most answers, so checking every answer causes heavy over-refusal
         self.self_check_min_p = self_check_min_p
@@ -293,7 +294,7 @@ class AbstentionAgent:
 
     def _clarify_or_abstain(self, s: AgentState) -> dict:
         t0, task = time.perf_counter(), s["task"]
-        if self.clarify:
+        if self.clarify and task.turn >= self.clarify_min_turn:
             hist = format_history(task.history, self.rw_kw.get("history_turns", 3), self.rw_kw.get("history_chars"))
             amb = _yes(self.llm.chat([{"role": "user", "content": AMBIGUOUS_PROMPT.format(h=hist or "(none)", q=task.question)}],
                                      max_new_tokens=3), default=False)

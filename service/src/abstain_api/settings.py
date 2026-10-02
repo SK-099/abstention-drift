@@ -56,6 +56,7 @@ class Settings(BaseSettings):
     max_retries: int = 1
     self_check: bool = True
     clarify: bool = True
+    clarify_min_turn: int = 1  # 2 = never ask a clarifying question on a conversation's first turn
     history_turns: int = 3
     history_chars: int = 400
     passage_chars: int = 1000

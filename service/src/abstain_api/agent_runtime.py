@@ -90,6 +90,7 @@ class AgentRuntime:
             max_retries=s.max_retries,
             self_check=s.self_check,
             clarify=s.clarify,
+            clarify_min_turn=s.clarify_min_turn,
             self_check_min_p=s.resolved_min_p(),
             checkpointer=self.c.checkpointer,
             rewrite_kwargs={"history_turns": s.history_turns, "history_chars": s.history_chars},
