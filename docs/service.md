@@ -26,7 +26,7 @@ already exist in this folder: `checkpoints/checker/best` (the S4 checker), `chec
 
 ```powershell
 copy .env.example .env                       # defaults: Ollama on the host, AUTH_MODE=dev
-docker compose up -d --build                 # API, worker, beat, Postgres, Redis, Qdrant, Langfuse, Prometheus, Grafana
+docker compose up -d --build                 # API, worker, beat, Postgres, Redis, Qdrant, Langfuse (+ SeaweedFS S3), Prometheus, Grafana
 docker compose run --rm api python service/scripts/migrate_to_qdrant.py --index-dir /indexes --snapshot
 ```
 
