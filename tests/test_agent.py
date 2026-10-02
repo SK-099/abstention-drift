@@ -99,3 +99,15 @@ def test_selective_self_check_skips_confident_evidence():
     assert out.decision == "answer" and "skipped" in out.trace[-1]
     out = agent(FakeLLM(checks=["no"]), Gate(weak=()), self_check_min_p=0.05)(task())  # p=0.1 >= 0.05
     assert out.decision == "abstain" and out.abstained_by == "self-check"
+
+
+def test_identical_retry_query_skips_second_search():
+    class SameQueryLLM(FakeLLM):
+        def chat(self, messages, max_new_tokens=None):
+            if "DIFFERENT standalone search query" in messages[0]["content"]:
+                return "first query"                      # the "new" query repeats the first one
+            return super().chat(messages, max_new_tokens)
+
+    out = agent(SameQueryLLM(), Gate(weak=("first query",)))(task())
+    assert out.decision == "abstain" and out.attempts == 1
+    assert sum(t.startswith("retrieve") for t in out.trace) == 1     # no second retrieval

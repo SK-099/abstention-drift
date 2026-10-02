@@ -210,7 +210,7 @@ class AbstentionAgent:
                          ("retry", self._retry), ("clarify_or_abstain", self._clarify_or_abstain)]:
             g.add_node(name, fn)
         g.set_entry_point("rewrite")
-        g.add_edge("rewrite", "retrieve")
+        g.add_conditional_edges("rewrite", self._after_rewrite, {"search": "retrieve", "repeat": "clarify_or_abstain"})
         g.add_edge("retrieve", "grade")
         g.add_conditional_edges("grade", self._after_grade, {"ok": "generate", "weak": "retry"})
         g.add_conditional_edges("generate", self._after_generate,
@@ -306,6 +306,16 @@ class AbstentionAgent:
                 "trace": list(s["trace"]) + ["abstain"], "timings": self._tick(s, "clarify", t0)}
 
     # -- routing
+    @staticmethod
+    def _after_rewrite(s: AgentState) -> str:
+        """A retry query identical to one already tried would retrieve the same passages and (greedy decoding)
+        produce the same refusal, so go straight to the clarify-or-abstain decision."""
+        if s.get("attempt", 0) > 0:
+            norm = lambda q: " ".join(q.lower().split())
+            if norm(s["query"]) in {norm(q) for q in s.get("queries", [])[:-1]}:
+                return "repeat"
+        return "search"
+
     def _after_grade(self, s: AgentState) -> str:
         return "weak" if s.get("p") is not None and s["p"] >= self.threshold else "ok"
 

@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     llm_base_url: str = "http://localhost:11434/v1"
     llm_model: str = "qwen2.5:3b"
     llm_api_key: str = "ollama"
-    llm_max_tokens: int = 128
+    llm_max_tokens: int = 320  # answer length cap (the research runs used 128)
     llm_timeout_s: float = 120.0
     llm_seed: int | None = 13
 
