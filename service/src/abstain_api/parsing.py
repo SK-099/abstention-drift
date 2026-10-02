@@ -31,15 +31,38 @@ def parse_and_chunk(path: str | Path, s: Settings) -> list[dict]:
     use_docling = s.parser == "docling" or (
         s.parser == "auto" and _docling_available() and path.suffix.lower() in {".pdf", ".docx", ".html", ".htm"}
     )
+    chunks = None
     if use_docling:
         try:
-            return _docling_chunks(path)
+            chunks = _docling_chunks(path)
         except Exception:
             if s.parser == "docling":
                 raise
             log.exception("Docling failed on %s; falling back to the basic parser", path.name)
-    title, text = basic_extract(path)
-    return [{"title": title, "text": c} for c in chunk_text(text, s.chunk_words, s.chunk_overlap)]
+    if chunks is None:
+        title, text = basic_extract(path)
+        chunks = [{"title": title, "text": c} for c in chunk_text(text, s.chunk_words, s.chunk_overlap)]
+    # The generator and the self-check only read the first PASSAGE_CHARS of each passage: a longer chunk
+    # would be retrievable by text the LLM never sees, so split it until every piece fits.
+    return [{**c, "text": t} for c in chunks for t in fit_chars(c["text"], s.passage_chars, s.chunk_overlap)]
+
+
+def fit_chars(text: str, max_chars: int, overlap: int = 40) -> list[str]:
+    """Split text at word boundaries into pieces of at most max_chars characters (overlapping by `overlap` words)."""
+    if not max_chars or len(text) <= max_chars:
+        return [text]
+    words, out, i = text.split(), [], 0
+    while i < len(words):
+        j, n = i, 0
+        while j < len(words) and (n + len(words[j]) + (j > i)) <= max_chars:
+            n += len(words[j]) + (j > i)
+            j += 1
+        j = max(j, i + 1)  # a single over-long token still makes progress
+        out.append(" ".join(words[i:j]))
+        if j >= len(words):
+            break
+        i = max(i + 1, j - min(overlap, (j - i) // 2))
+    return out
 
 
 def _docling_chunks(path: Path) -> list[dict]:

@@ -67,3 +67,13 @@ def test_settings_refuse_dev_auth_in_production():
 
     with pytest.raises(ValueError):
         Settings(env="production", auth_mode="dev")
+
+
+def test_fit_chars_keeps_every_chunk_within_the_generator_window():
+    from abstain_api.parsing import fit_chars
+
+    text = " ".join(f"w{i}" for i in range(600))
+    parts = fit_chars(text, 200, overlap=5)
+    assert all(len(p) <= 200 for p in parts)
+    assert parts[0].split()[0] == "w0" and parts[-1].split()[-1] == "w599"
+    assert fit_chars("short text", 200) == ["short text"]

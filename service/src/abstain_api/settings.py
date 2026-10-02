@@ -69,8 +69,8 @@ class Settings(BaseSettings):
     max_upload_mb: int = 20
     allowed_extensions: list[str] = [".pdf", ".html", ".htm", ".docx", ".md", ".txt"]
     parser: Literal["auto", "docling", "basic"] = "auto"
-    chunk_words: int = 220
-    chunk_overlap: int = 40
+    chunk_words: int = 150  # ~1,000 characters: fits PASSAGE_CHARS, so the LLM reads every retrieved chunk whole
+    chunk_overlap: int = 30
     nightly_eval_hour_utc: int = 2
 
     # --- auth: Clerk (jwks), Auth.js (hs256 shared secret) or dev (no login; refused in production)
