@@ -98,8 +98,10 @@ class FakeLLM:
 
         from abstain.agent import STREAM_TOKENS
 
-        m = re.search(r"\[1\][^\n]*\n?([^\n]+)", user)
-        ans = (m.group(1).strip() if m else "The documents say so.")[:200]
+        m = re.search(r"\[1\][^\n]*\n?((?:[^\n]+\n?){1,3})", user)
+        lines = [ln.strip() for ln in m.group(1).splitlines() if ln.strip()] if m else []
+        # (passages start with their section header: answer with the longest of the first lines)
+        ans = (max(lines, key=len) if lines else "The documents say so.")[:200]
         if STREAM_TOKENS.get():
             w = get_stream_writer()
             for tok in ans.split(" "):

@@ -26,7 +26,13 @@ def _docling_available() -> bool:
 
 
 def parse_and_chunk(path: str | Path, s: Settings) -> list[dict]:
-    """Return [{"title", "text"}] chunks."""
+    """Return [{"title", "section", "text"}] chunks.
+
+    Contextual chunk headers: chunks never cross a section boundary, and each chunk's text starts with
+    its section path (e.g. "Appendix A. Prompts" or "5. System Design › 5.4 Stage 3: answer generation"),
+    so a chunk deep inside a section is still found by questions that name the section, and the LLM
+    knows where the text comes from.
+    """
     path = Path(path)
     use_docling = s.parser == "docling" or (
         s.parser == "auto" and _docling_available() and path.suffix.lower() in {".pdf", ".docx", ".html", ".htm"}
@@ -41,10 +47,89 @@ def parse_and_chunk(path: str | Path, s: Settings) -> list[dict]:
             log.exception("Docling failed on %s; falling back to the basic parser", path.name)
     if chunks is None:
         title, text = basic_extract(path)
-        chunks = [{"title": title, "text": c} for c in chunk_text(text, s.chunk_words, s.chunk_overlap)]
-    # The generator and the self-check only read the first PASSAGE_CHARS of each passage: a longer chunk
-    # would be retrievable by text the LLM never sees, so split it until every piece fits.
-    return [{**c, "text": t} for c in chunks for t in fit_chars(c["text"], s.passage_chars, s.chunk_overlap)]
+        chunks = [
+            {"title": title, "section": section, "text": c}
+            for section, body in split_sections(text, markdown=path.suffix.lower() != ".pdf")
+            for c in chunk_text(body, s.chunk_words, s.chunk_overlap)
+        ]
+    return [piece for c in chunks for piece in with_header(c, s.passage_chars, s.chunk_overlap)]
+
+
+def with_header(chunk: dict, max_chars: int, overlap: int) -> list[dict]:
+    """Prefix the section path; split so that header + text fits PASSAGE_CHARS (the generator and the
+    self-check only read that many characters of a passage, so longer text would be retrievable but unseen)."""
+    section = (chunk.get("section") or "").strip()
+    header = f"{section}\n" if section else ""
+    budget = max(200, max_chars - len(header)) if max_chars else 0
+    return [{**chunk, "text": header + t} for t in fit_chars(chunk["text"], budget, overlap)]
+
+
+# ---------------------------------------------------------------- section detection (basic parser)
+_MD_HEAD = re.compile(r"^(#{1,6})\s+(.+?)\s*#*$")
+_NUM_HEAD = re.compile(r"^(\d{1,2}(?:\.\d{1,2}){0,3}|[A-Z])(\.?)\s+([A-Z(][^\n]{1,90})$")
+
+
+_NAMED_HEADS = {"abstract", "acknowledgements", "acknowledgments", "references", "bibliography", "appendix"}
+
+
+def _heading(line: str, top: list, markdown: bool = True) -> tuple[int, str] | None:
+    """(level, text) if the line looks like a section heading, else None.
+
+    Markdown '#' headings, or numbered ones ("5. System Design", "5.4 Stage 3: …", "A. Prompts").
+    Rejects table-of-contents lines (trailing page number), list items and captions (sentence
+    punctuation), and numbering that does not continue the current section (e.g. "3.1" under section 8)."""
+    line = line.strip()
+    m = _MD_HEAD.match(line) if markdown else None  # (in PDFs '#' starts shell comments, not headings)
+    if m:
+        return len(m.group(1)), m.group(2)
+    if line.lower() in _NAMED_HEADS:
+        return 1, line
+    m = _NUM_HEAD.match(line)
+    if not m:
+        return None
+    num, dot, rest = m.groups()
+    if re.search(r"(\s\d+|[.,;:\-–])$", rest) or ". " in rest or len(rest.split()) > 12:
+        return None
+    parts = num.split(".")
+    if len(parts) == 1:  # top level: "5. Title" / "A. Title" (needs the dot) and must move forward
+        if not dot:
+            return None
+        prev = top[0]
+        if num.isdigit():
+            if prev is not None and (not str(prev).isdigit() or int(num) <= int(prev)):
+                return None
+        elif prev is not None and str(prev).isalpha() and num <= prev:
+            return None
+        top[0] = num
+        label = f"Appendix {num}. {rest}" if num.isalpha() else f"{num}. {rest}"
+        return 1, label
+    if top[0] is None or parts[0] != str(top[0]):  # "5.4" only inside section 5
+        return None
+    return len(parts), f"{num} {rest}"
+
+
+def split_sections(text: str, markdown: bool = True) -> list[tuple[str, str]]:
+    """[(section path, body)] in document order; text before the first heading has an empty path."""
+    out, stack, buf, top = [], [], [], [None]
+
+    def flush():
+        body = "\n".join(buf).strip()
+        if body:
+            out.append((" › ".join(h for _, h in stack), body))
+        buf.clear()
+
+    for line in text.replace("\r", "").split("\n"):
+        h = _heading(line, top, markdown)
+        if h is None:
+            buf.append(line)
+            continue
+        flush()
+        level, label = h
+        while stack and stack[-1][0] >= level:
+            stack.pop()
+        stack.append((level, label))
+    flush()
+    return out
 
 
 def fit_chars(text: str, max_chars: int, overlap: int = 40) -> list[str]:
@@ -75,7 +160,7 @@ def _docling_chunks(path: Path) -> list[dict]:
         heads = getattr(getattr(ch, "meta", None), "headings", None) or []
         text = ch.text.strip()
         if text:
-            out.append({"title": " / ".join(heads) or path.stem, "text": text})
+            out.append({"title": path.stem, "section": " › ".join(heads), "text": text})
     return out
 
 
@@ -95,7 +180,8 @@ def basic_extract(path: Path) -> tuple[str, str]:
             t.decompose()
         title = soup.title.get_text(strip=True) if soup.title else path.stem
         blocks = [
-            el.get_text(" ", strip=True) for el in soup.find_all(["h1", "h2", "h3", "h4", "p", "li", "td", "pre"])
+            ("#" * int(el.name[1]) + " " if el.name in {"h1", "h2", "h3", "h4"} else "") + el.get_text(" ", strip=True)
+            for el in soup.find_all(["h1", "h2", "h3", "h4", "p", "li", "td", "pre"])
         ]
         return title, "\n\n".join(b for b in blocks if b)
     if ext == ".docx":
@@ -103,7 +189,13 @@ def basic_extract(path: Path) -> tuple[str, str]:
 
         d = docx.Document(str(path))
         title = d.core_properties.title or path.stem
-        return title, "\n\n".join(p.text for p in d.paragraphs if p.text.strip())
+
+        def md(p):
+            st = (p.style.name or "") if p.style is not None else ""
+            lvl = st.split()[-1] if st.startswith("Heading") else ""
+            return ("#" * int(lvl) + " " if lvl.isdigit() else "") + p.text
+
+        return title, "\n\n".join(md(p) for p in d.paragraphs if p.text.strip())
     return path.stem, path.read_text(encoding="utf-8", errors="ignore")
 
 

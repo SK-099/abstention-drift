@@ -14,7 +14,8 @@ FastAPI (service/src/abstain_api)  ── Langfuse (traces of every LangGraph no
   │                        ├─ BGE re-ranker (in-process or TEI)
   │                        └─ fine-tuned answerability checker (gate τ) + self-check (p ≥ min_p)
   ├─ PostgreSQL (SQLAlchemy 2 + Alembic): users, conversations, messages, feedback, collections, documents, eval runs
-  ├─ Celery + Redis: document indexing (Docling/basic parsing → injection screen → embed → Qdrant), nightly evaluation
+  ├─ Celery + Redis: document indexing (Docling/basic parsing → section-aware chunks with contextual headers
+  │                  → injection screen → embed → Qdrant), nightly evaluation
   └─ OpenTelemetry metrics → Prometheus → Grafana; errors → Sentry
 ```
 
@@ -90,6 +91,12 @@ questions", alerts `PromptInjectionAttempts` / `AnswersRedacted`) and added as L
 check, so clients must render the `final` answer (or set `GUARDRAILS_BUFFER_OUTPUT=true`).
 `GUARDRAILS_ENGINE=builtin` runs the same checks without the library; `GUARDRAILS=off` disables them.
 (LLM Guard was evaluated but pins `transformers==4.51.3`, which conflicts with this project.)
+
+Chunking of uploads: chunks never cross a section boundary and each starts with its section path
+(contextual chunk header, e.g. `Appendix A. Prompts` or `5. System Design › 5.4 Stage 3: …`), detected from
+numbered/Markdown/HTML/Word headings (Docling's headings when Docling parses). Header + text is capped at
+`PASSAGE_CHARS` (1,000), the amount of each passage the generator and self-check read, so nothing that
+retrieval matches is hidden from the LLM (`CHUNK_WORDS` 150, `CHUNK_OVERLAP` 30).
 
 Auth: `AUTH_MODE=jwks` verifies Clerk session tokens (RS256 via the JWKS URL, issuer and `azp`);
 `AUTH_MODE=hs256` verifies a token signed by the Auth.js app with the shared `AUTH_SECRET`; `dev` (no login)

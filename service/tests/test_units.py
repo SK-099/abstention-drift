@@ -77,3 +77,34 @@ def test_fit_chars_keeps_every_chunk_within_the_generator_window():
     assert all(len(p) <= 200 for p in parts)
     assert parts[0].split()[0] == "w0" and parts[-1].split()[-1] == "w599"
     assert fit_chars("short text", 200) == ["short text"]
+
+
+def test_contextual_chunk_headers_follow_sections():
+    from abstain_api.parsing import split_sections, with_header
+
+    text = "\n".join(
+        [
+            "Contents",
+            "5 System Design 8",  # table-of-contents line: not a heading
+            "A Prompts 32",
+            "5. System Design",
+            "Intro text.",
+            "5.4 Stage 3: answer generation",
+            "The generator sees five passages.",
+            "3. Validate synthetic labels by hand.",  # list item: not a heading
+            "A. Prompts",
+            "Answer generation – system prompt. Answer ONLY from the passages.",
+        ]
+    )
+    secs = split_sections(text, markdown=False)
+    assert [h for h, _ in secs] == [
+        "",
+        "5. System Design",
+        "5. System Design › 5.4 Stage 3: answer generation",
+        "Appendix A. Prompts",
+    ]
+    assert "3. Validate" in secs[2][1]
+    pieces = with_header({"title": "r", "section": secs[3][0], "text": secs[3][1]}, 1000, 30)
+    assert pieces[0]["text"].startswith("Appendix A. Prompts\nAnswer generation")
+    md = split_sections("# Guide\nhello\n## Install\nrun it")
+    assert [h for h, _ in md] == ["Guide", "Guide › Install"]
