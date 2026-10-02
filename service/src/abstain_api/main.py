@@ -32,13 +32,14 @@ BUILTIN_COLLECTIONS = {
 }
 
 
-async def seed_collections() -> None:
+async def seed_collections() -> list[str]:
     async with async_sessionmaker_()() as s:
         have = set((await s.execute(select(Collection.id))).scalars().all())
         for cid, (name, desc) in BUILTIN_COLLECTIONS.items():
             if cid not in have:
                 s.add(Collection(id=cid, name=name, description=desc, is_public=True))
         await s.commit()
+        return sorted(have | set(BUILTIN_COLLECTIONS))
 
 
 @asynccontextmanager
@@ -49,10 +50,14 @@ async def lifespan(app: FastAPI):
 
         async with async_engine().begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
+    cols = list(BUILTIN_COLLECTIONS)
     try:
-        await seed_collections()
+        cols = await seed_collections()
     except Exception:
         log.exception("could not seed collections (did you run `alembic upgrade head`?)")
+    from .telemetry import get_metrics
+
+    get_metrics().prime(cols)  # counters start at 0 so the first event after a restart is counted
     yield
     from .tracing import flush
 

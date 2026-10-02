@@ -30,6 +30,9 @@ async def create_collection(
     session.add(c)
     await session.commit()
     await session.refresh(c)
+    from ..telemetry import get_metrics
+
+    get_metrics().prime_collection(c.id)
     return c
 
 

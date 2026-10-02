@@ -24,6 +24,33 @@ class Metrics:
             "injection_chunks_dropped", description="uploaded chunks dropped as prompt injection"
         )
 
+    DECISIONS = ("answer", "abstain", "clarify")
+    FEEDBACK_REASONS = ("", "wrong_refusal", "wrong_answer", "bad_citation", "unclear", "other")
+    DOC_STATUSES = ("indexed", "rejected", "failed")
+
+    def prime(self, collections=(), api: bool = True, worker: bool = False) -> None:
+        """Create every counter series at 0 before it is first incremented.
+
+        Prometheus' increase()/rate() need a sample *before* the first event: a series that first appears
+        with value 1 counts as 0 (so the first abstain/clarify/thumbs-down after each restart would be lost).
+        """
+        if api:
+            for c in collections:
+                self.prime_collection(c)
+            for r in ("1", "-1"):
+                for d in self.DECISIONS:
+                    for reason in self.FEEDBACK_REASONS:
+                        self.feedback.add(0, {"rating": r, "decision": d, "reason": reason})
+        if worker:
+            for st in self.DOC_STATUSES:
+                self.documents.add(0, {"status": st})
+            self.flagged.add(0)
+
+    def prime_collection(self, collection: str) -> None:
+        for d in self.DECISIONS:
+            self.turns.add(0, {"decision": d, "collection": collection})
+        self.retries.add(0, {"collection": collection})
+
     def turn(self, decision: str, collection: str, seconds: float, timings: dict, retried: bool):
         attrs = {"decision": decision, "collection": collection}
         self.turns.add(1, attrs)

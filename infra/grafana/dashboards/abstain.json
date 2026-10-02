@@ -50,7 +50,7 @@
    "targets": [
     {
      "refId": "A",
-     "expr": "sum(increase(assistant_turns_total{collection=~\"$collection\"}[24h]))"
+     "expr": "round(sum(increase(assistant_turns_total{collection=~\"$collection\"}[24h]))) or vector(0)"
     }
    ],
    "fieldConfig": {
@@ -77,12 +77,14 @@
    "targets": [
     {
      "refId": "A",
-     "expr": "sum(increase(assistant_turns_total{decision=~\"abstain|clarify\",collection=~\"$collection\"}[24h])) / clamp_min(sum(increase(assistant_turns_total{collection=~\"$collection\"}[24h])),1e-9)"
+     "expr": "(sum(increase(assistant_turns_total{decision=~\"abstain|clarify\",collection=~\"$collection\"}[24h])) / clamp_min(sum(increase(assistant_turns_total{collection=~\"$collection\"}[24h])),1e-9)) or vector(0)"
     }
    ],
    "fieldConfig": {
     "defaults": {
-     "unit": "percentunit"
+     "unit": "percentunit",
+     "min": 0,
+     "max": 1
     },
     "overrides": []
    },
@@ -131,7 +133,7 @@
    "targets": [
     {
      "refId": "A",
-     "expr": "sum(increase(feedback_events_total{rating=\"-1\"}[24h]))"
+     "expr": "round(sum(increase(feedback_events_total{rating=\"-1\"}[24h]))) or vector(0)"
     }
    ],
    "fieldConfig": {
@@ -168,7 +170,12 @@
      "custom": {
       "stacking": {
        "mode": "normal"
-      }
+      },
+      "drawStyle": "line",
+      "lineInterpolation": "stepAfter",
+      "spanNulls": true,
+      "showPoints": "auto",
+      "pointSize": 5
      }
     },
     "overrides": []
@@ -201,8 +208,15 @@
      "custom": {
       "stacking": {
        "mode": "none"
-      }
-     }
+      },
+      "drawStyle": "line",
+      "lineInterpolation": "stepAfter",
+      "spanNulls": true,
+      "showPoints": "auto",
+      "pointSize": 5
+     },
+     "min": 0,
+     "max": 1
     },
     "overrides": []
    },
@@ -234,8 +248,15 @@
      "custom": {
       "stacking": {
        "mode": "none"
-      }
-     }
+      },
+      "drawStyle": "line",
+      "lineInterpolation": "stepAfter",
+      "spanNulls": true,
+      "showPoints": "auto",
+      "pointSize": 5
+     },
+     "min": 0,
+     "max": 1
     },
     "overrides": []
    },
@@ -267,8 +288,15 @@
      "custom": {
       "stacking": {
        "mode": "none"
-      }
-     }
+      },
+      "drawStyle": "line",
+      "lineInterpolation": "stepAfter",
+      "spanNulls": true,
+      "showPoints": "auto",
+      "pointSize": 5
+     },
+     "min": 0,
+     "max": 1
     },
     "overrides": []
    },
@@ -305,7 +333,12 @@
      "custom": {
       "stacking": {
        "mode": "none"
-      }
+      },
+      "drawStyle": "line",
+      "lineInterpolation": "stepAfter",
+      "spanNulls": true,
+      "showPoints": "auto",
+      "pointSize": 5
      }
     },
     "overrides": []
@@ -338,7 +371,12 @@
      "custom": {
       "stacking": {
        "mode": "none"
-      }
+      },
+      "drawStyle": "line",
+      "lineInterpolation": "stepAfter",
+      "spanNulls": true,
+      "showPoints": "auto",
+      "pointSize": 5
      }
     },
     "overrides": []
@@ -371,7 +409,12 @@
      "custom": {
       "stacking": {
        "mode": "none"
-      }
+      },
+      "drawStyle": "line",
+      "lineInterpolation": "stepAfter",
+      "spanNulls": true,
+      "showPoints": "auto",
+      "pointSize": 5
      }
     },
     "overrides": []
@@ -409,7 +452,12 @@
      "custom": {
       "stacking": {
        "mode": "none"
-      }
+      },
+      "drawStyle": "line",
+      "lineInterpolation": "stepAfter",
+      "spanNulls": true,
+      "showPoints": "auto",
+      "pointSize": 5
      }
     },
     "overrides": []
@@ -442,7 +490,12 @@
      "custom": {
       "stacking": {
        "mode": "none"
-      }
+      },
+      "drawStyle": "line",
+      "lineInterpolation": "stepAfter",
+      "spanNulls": true,
+      "showPoints": "auto",
+      "pointSize": 5
      }
     },
     "overrides": []
@@ -475,7 +528,12 @@
      "custom": {
       "stacking": {
        "mode": "none"
-      }
+      },
+      "drawStyle": "line",
+      "lineInterpolation": "stepAfter",
+      "spanNulls": true,
+      "showPoints": "auto",
+      "pointSize": 5
      }
     },
     "overrides": []

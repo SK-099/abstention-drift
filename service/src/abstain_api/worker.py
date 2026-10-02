@@ -42,7 +42,7 @@ def _start_metrics_server(**_):
 
         from .telemetry import setup_metrics
 
-        setup_metrics()
+        setup_metrics().prime(api=False, worker=True)
         start_http_server(port)
 
 
