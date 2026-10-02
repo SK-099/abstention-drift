@@ -5,7 +5,8 @@ FROM python:3.11-slim AS build
 COPY --from=ghcr.io/astral-sh/uv:0.8 /uv /uvx /bin/
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy UV_PYTHON_DOWNLOADS=never VIRTUAL_ENV=/opt/venv PATH=/opt/venv/bin:$PATH
 RUN uv venv /opt/venv
-# CPU-only torch first (keeps the image ~1.5 GB smaller than the default CUDA wheels)
+# --no-sources (below): without it uv installs the workspace package `abstain` as an *editable* link to
+# /src, which does not exist in the runtime stage. CPU-only torch first (keeps the image ~1.5 GB smaller than the default CUDA wheels)
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv pip install "torch>=2.2" --index-url https://download.pytorch.org/whl/cpu
 WORKDIR /src
@@ -15,7 +16,7 @@ COPY service/pyproject.toml ./service/pyproject.toml
 COPY service/src ./service/src
 ARG EXTRAS=""
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv pip install "./[agent]" "./service${EXTRAS}" "faiss-cpu>=1.8"   # faiss: migrate_to_qdrant.py reads the research FAISS vectors
+    uv pip install --no-sources "./[agent]" "./service${EXTRAS}" "faiss-cpu>=1.8"   # faiss: migrate_to_qdrant.py reads the research FAISS vectors
 
 FROM python:3.11-slim AS runtime
 RUN apt-get update && apt-get install -y --no-install-recommends libgomp1 curl && rm -rf /var/lib/apt/lists/* \
@@ -30,7 +31,8 @@ COPY service/migrations ./service/migrations
 COPY service/eval ./service/eval
 COPY service/scripts ./service/scripts
 COPY configs ./configs
-RUN mkdir -p /data/hf /data/uploads checkpoints && chown -R app /data /app
+RUN python -c "import abstain.agent, abstain_api.main" \
+    && mkdir -p /data/hf /data/uploads checkpoints && chown -R app /data /app
 USER app
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=60s CMD curl -fs http://localhost:8000/healthz || exit 1
