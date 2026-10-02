@@ -142,8 +142,8 @@ calibration and the live quality gate before release, because τ and min_p were 
 ## 6. Tests
 
 ```bash
-uv run pytest tests -q                       # research package (23)
-cd service && uv run pytest -q               # service: SQLite + in-memory Qdrant (14)
+uv run pytest tests -q                       # research package (26)
+cd service && uv run pytest -q               # service: SQLite + in-memory Qdrant (23)
 TEST_DATABASE_URL=postgresql+asyncpg://app:app@localhost:5432/app TEST_CHECKPOINTER=postgres \
   TEST_QDRANT_URL=http://localhost:6333 uv run pytest -q          # real Postgres + Qdrant
 TEST_DATABASE_URL=... TEST_VECTOR_STORE=pgvector uv run pytest -q  # pgvector backend
