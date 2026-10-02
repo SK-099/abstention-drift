@@ -15,7 +15,7 @@ COPY service/pyproject.toml ./service/pyproject.toml
 COPY service/src ./service/src
 ARG EXTRAS=""
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv pip install "./[agent]" "./service${EXTRAS}"
+    uv pip install "./[agent]" "./service${EXTRAS}" "faiss-cpu>=1.8"   # faiss: migrate_to_qdrant.py reads the research FAISS vectors
 
 FROM python:3.11-slim AS runtime
 RUN apt-get update && apt-get install -y --no-install-recommends libgomp1 curl && rm -rf /var/lib/apt/lists/* \

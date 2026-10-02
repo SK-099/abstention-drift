@@ -39,6 +39,7 @@ dependencies = [
 
 [project.optional-dependencies]
 docling = ["docling>=2.0"]
+migrate = ["faiss-cpu>=1.8"]
 eval = ["ragas>=0.2", "matplotlib"]
 
 [project.scripts]

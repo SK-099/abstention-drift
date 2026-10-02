@@ -13,8 +13,9 @@
 # First run: load the MTRAG corpora into Qdrant (see docs/service.md):
 #   docker compose run --rm api python service/scripts/migrate_to_qdrant.py --index-dir /indexes
 
+# One image for api / worker / beat / migrate. Only `api` builds it (several services building the same
+# tag in parallel makes BuildKit fail with "image already exists"); the others reuse the built image.
 x-app: &app
-  build: { context: ., dockerfile: service/Dockerfile }
   image: ${IMAGE_API:-abstain-api:local}
   env_file: [{ path: .env, required: false }]
   environment:
@@ -34,12 +35,14 @@ services:
   # ------------------------------------------------------------------ application
   migrate:
     <<: *app
+    pull_policy: never              # built by the api service
     command: ["alembic", "-c", "service/alembic.ini", "upgrade", "head"]
     restart: "no"
     depends_on: { postgres: { condition: service_healthy } }
 
   api:
     <<: *app
+    build: { context: ., dockerfile: service/Dockerfile }
     ports: ["8000:8000"]
     depends_on:
       migrate: { condition: service_completed_successfully }
@@ -48,6 +51,7 @@ services:
 
   worker:
     <<: *app
+    pull_policy: never              # built by the api service
     command: ["celery", "-A", "abstain_api.worker", "worker", "--loglevel=INFO", "--pool=threads", "--concurrency=2"]
     healthcheck: { disable: true }
     depends_on:
@@ -56,6 +60,7 @@ services:
 
   beat:
     <<: *app
+    pull_policy: never              # built by the api service
     command: ["celery", "-A", "abstain_api.worker", "beat", "--loglevel=INFO", "--schedule=/data/celerybeat-schedule"]
     healthcheck: { disable: true }
     depends_on: { redis: { condition: service_healthy } }
@@ -84,7 +89,7 @@ services:
     restart: unless-stopped
 
   qdrant:
-    image: qdrant/qdrant:v1.15.4
+    image: qdrant/qdrant:v1.19.1
     ports: ["6333:6333", "6334:6334"]
     volumes: [qdrant-data:/qdrant/storage, qdrant-snapshots:/qdrant/snapshots]
     restart: unless-stopped
