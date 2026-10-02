@@ -101,7 +101,18 @@ class AgentRuntime:
         )
 
     # ------------------------------------------------------------------ sync API
-    def stream(self, task: Task, thread_id: str, callbacks=None, metadata=None) -> Iterator[dict]:
+    def stream(self, task: Task, thread_id: str, callbacks=None, metadata=None, trace=None) -> Iterator[dict]:
+        """`trace`: optional tracing.TurnTrace, entered here because it must live in the graph's thread."""
+        if trace is None:
+            yield from self._stream(task, thread_id, callbacks, metadata)
+            return
+        with trace:
+            for ev in self._stream(task, thread_id, callbacks, metadata):
+                if ev["event"] == "final":
+                    trace.finish(ev["data"])
+                yield ev
+
+    def _stream(self, task: Task, thread_id: str, callbacks=None, metadata=None) -> Iterator[dict]:
         t0 = time.perf_counter()
         for ev in self.agent.stream(task, thread_id=thread_id, callbacks=callbacks, metadata=metadata):
             if ev[0] == "token":
@@ -164,7 +175,9 @@ class AgentRuntime:
         return v
 
     # ------------------------------------------------------------------ async bridge for SSE
-    async def astream(self, task: Task, thread_id: str, callbacks=None, metadata=None) -> AsyncIterator[dict]:
+    async def astream(
+        self, task: Task, thread_id: str, callbacks=None, metadata=None, trace=None
+    ) -> AsyncIterator[dict]:
         """Run the (sync) graph in a worker thread and yield its events on the event loop."""
         loop = asyncio.get_running_loop()
         q: asyncio.Queue = asyncio.Queue()
@@ -172,7 +185,7 @@ class AgentRuntime:
 
         def work():
             try:
-                for ev in self.stream(task, thread_id, callbacks, metadata):
+                for ev in self.stream(task, thread_id, callbacks, metadata, trace):
                     loop.call_soon_threadsafe(q.put_nowait, ev)
             except Exception as e:
                 log.exception("agent run failed")

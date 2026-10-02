@@ -51,3 +51,83 @@ def flush() -> None:
         get_client().flush()
     except Exception:
         pass
+
+
+def turn_label(collection: str, turn: int, decision: str | None = None) -> str:
+    """Readable trace name, e.g. 'chat · cloud · turn 3 · answer'."""
+    return " · ".join(["chat", collection, f"turn {turn}"] + ([decision] if decision else []))
+
+
+class TurnTrace:
+    """One Langfuse trace per chat turn.
+
+    Opens a root span named after the turn; the LangGraph callback handler nests every node and LLM
+    call under it. When the turn ends, the trace is renamed with the decision
+    ('chat · cloud · turn 3 · answer'), its input/output become the user's question and the final
+    answer, and the decision is added as a tag. Must be entered in the thread that runs the graph.
+    """
+
+    def __init__(self, *, question: str, collection: str, turn: int, user_id: str, session_id: str, versions: dict):
+        self.question, self.collection, self.turn = question, collection, turn
+        self.user_id, self.session_id, self.versions = user_id, session_id, versions
+        self.tags = [f"collection:{collection}", f"prompt:{versions['prompt_version']}"]
+        self._stack = None
+        self._root = None
+
+    def __enter__(self):
+        from contextlib import ExitStack
+
+        from langfuse import get_client, propagate_attributes
+
+        self._stack = ExitStack()
+        try:
+            self._stack.enter_context(
+                propagate_attributes(
+                    user_id=self.user_id,
+                    session_id=self.session_id,
+                    tags=self.tags,
+                    metadata={k: str(v)[:200] for k, v in self.versions.items()},
+                )
+            )
+            self._root = self._stack.enter_context(
+                get_client().start_as_current_observation(
+                    as_type="chain",
+                    name=turn_label(self.collection, self.turn),
+                    input={"question": self.question},
+                )
+            )
+        except Exception:  # tracing must never break a chat turn
+            log.exception("could not start the Langfuse trace")
+            self._stack.close()
+            self._stack = self._root = None
+        return self
+
+    def finish(self, final: dict) -> None:
+        """Name the trace after the decision and set the question / answer as trace input / output."""
+        if self._root is None:
+            return
+        try:
+            from langfuse import LangfuseOtelSpanAttributes as A
+
+            label = turn_label(self.collection, self.turn, final.get("decision"))
+            output = {
+                "answer": final.get("answer"),
+                "decision": final.get("decision"),
+                "abstained_by": final.get("abstained_by"),
+                "p_unanswerable": final.get("p_unanswerable"),
+                "attempts": final.get("attempts"),
+                "citations": [c.get("document_id") for c in final.get("citations", [])],
+            }
+            self._root.update(name=label, output=output)
+            self._root.set_trace_io(input=self.question, output=final.get("answer"))
+            span = self._root._otel_span
+            span.update_name(label)
+            span.set_attribute(A.TRACE_NAME, label)
+            span.set_attribute(A.TRACE_TAGS, [*self.tags, f"decision:{final.get('decision')}"])
+        except Exception:
+            log.exception("could not finalise the Langfuse trace")
+
+    def __exit__(self, *exc):
+        if self._stack is not None:
+            self._stack.close()
+        return False

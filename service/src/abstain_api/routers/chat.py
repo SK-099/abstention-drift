@@ -29,7 +29,7 @@ from ..prompts import versions
 from ..schemas import ChatRequest
 from ..settings import get_settings
 from ..telemetry import get_metrics
-from ..tracing import flush, langfuse_handler, trace_metadata
+from ..tracing import TurnTrace, flush, langfuse_handler, trace_metadata
 from ._access import own_conversation, readable_collection
 
 log = logging.getLogger(__name__)
@@ -80,6 +80,13 @@ async def chat_stream(
     ver = versions(s)
     handler = langfuse_handler(s)
     meta = trace_metadata(user.id, conv.id, ver, collection)
+    trace = (
+        TurnTrace(
+            question=body.message, collection=collection, turn=turn, user_id=user.id, session_id=conv.id, versions=ver
+        )
+        if handler
+        else None
+    )
     rt = get_runtime(s)
     conv_id, user_msg_id = conv.id, umsg.id
 
@@ -91,7 +98,7 @@ async def chat_stream(
             ),
         }
         final, t0 = None, time.perf_counter()
-        async for ev in rt.astream(task, conv_id, callbacks=[handler] if handler else None, metadata=meta):
+        async for ev in rt.astream(task, conv_id, callbacks=[handler] if handler else None, metadata=meta, trace=trace):
             if ev["event"] == "final":
                 final = ev["data"]
                 continue  # sent after it is stored (with the message id)
