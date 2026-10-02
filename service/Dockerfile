@@ -17,8 +17,6 @@ COPY service/src ./service/src
 ARG EXTRAS=""
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv pip install --no-sources "./[agent]" "./service${EXTRAS}" "faiss-cpu>=1.8"   # faiss: migrate_to_qdrant.py reads the research FAISS vectors
-# Guardrails AI imports NLTK's punkt tokenizer: bake it in so containers never download at start-up
-RUN python -c "import nltk; [nltk.download(p, download_dir='/opt/venv/nltk_data', quiet=True) for p in ('punkt', 'punkt_tab')]"
 
 FROM python:3.11-slim AS runtime
 RUN apt-get update && apt-get install -y --no-install-recommends libgomp1 curl && rm -rf /var/lib/apt/lists/* \
