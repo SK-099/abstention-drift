@@ -123,7 +123,8 @@ class TurnTrace:
             span = self._root._otel_span
             span.update_name(label)
             span.set_attribute(A.TRACE_NAME, label)
-            span.set_attribute(A.TRACE_TAGS, [*self.tags, f"decision:{final.get('decision')}"])
+            guard_tags = sorted({f"guardrail:{e['rule']}" for e in final.get("guardrails", [])})
+            span.set_attribute(A.TRACE_TAGS, [*self.tags, f"decision:{final.get('decision')}", *guard_tags])
         except Exception:
             log.exception("could not finalise the Langfuse trace")
 

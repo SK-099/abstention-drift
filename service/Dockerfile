@@ -17,6 +17,8 @@ COPY service/src ./service/src
 ARG EXTRAS=""
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv pip install --no-sources "./[agent]" "./service${EXTRAS}" "faiss-cpu>=1.8"   # faiss: migrate_to_qdrant.py reads the research FAISS vectors
+# Guardrails AI imports NLTK's punkt tokenizer: bake it in so containers never download at start-up
+RUN python -c "import nltk; [nltk.download(p, download_dir='/opt/venv/nltk_data', quiet=True) for p in ('punkt', 'punkt_tab')]"
 
 FROM python:3.11-slim AS runtime
 RUN apt-get update && apt-get install -y --no-install-recommends libgomp1 curl && rm -rf /var/lib/apt/lists/* \
@@ -31,8 +33,9 @@ COPY service/migrations ./service/migrations
 COPY service/eval ./service/eval
 COPY service/scripts ./service/scripts
 COPY configs ./configs
-RUN python -c "import abstain.agent, abstain_api.main" \
-    && mkdir -p /data/hf /data/uploads checkpoints && chown -R app /data /app
+RUN python -c "import abstain.agent, abstain_api.main, guardrails" \
+    && mkdir -p /data/hf /data/uploads checkpoints && chown -R app /data /app \
+    && printf 'enable_metrics=false\n' > /home/app/.guardrailsrc && chown app /home/app/.guardrailsrc
 USER app
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=60s CMD curl -fs http://localhost:8000/healthz || exit 1

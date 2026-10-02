@@ -27,3 +27,11 @@ groups:
         expr: increase(injection_chunks_dropped_total[1h]) > 20
         labels: { severity: info }
         annotations: { summary: "Many uploaded passages were dropped as prompt injection in the last hour" }
+      - alert: PromptInjectionAttempts
+        expr: sum(increase(guardrail_events_total{rule="prompt_injection"}[1h])) > 5
+        labels: { severity: warning }
+        annotations: { summary: "More than 5 chat questions blocked as prompt injection in the last hour" }
+      - alert: AnswersRedacted
+        expr: sum(increase(guardrail_events_total{stage="output",rule="secrets_pii"}[1h])) > 3
+        labels: { severity: info }
+        annotations: { summary: "Answers contained personal data or secrets that had to be redacted" }

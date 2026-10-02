@@ -122,8 +122,13 @@ class AgentRuntime:
                 node = ev[1]
                 yield {"event": "step", "data": {"node": node, "label": STAGE_LABELS.get(node, node), "detail": ev[2]}}
             else:
-                out = ev[1]
-                yield {"event": "final", "data": self.final_payload(out, time.perf_counter() - t0)}
+                from .safety import guard_final
+
+                final, events = guard_final(self.final_payload(ev[1], time.perf_counter() - t0))
+                for e in events:  # output guardrails ran on the answer (redacted / blocked)
+                    yield {"event": "guardrail", "data": e}
+                final["guardrails"] = list(final.get("guardrails", [])) + events
+                yield {"event": "final", "data": final}
 
     def run(self, task: Task, thread_id: str, callbacks=None, metadata=None) -> dict:
         final = None

@@ -87,6 +87,14 @@ class Settings(BaseSettings):
     rate_limit_upload: str = "30/hour"
     max_message_chars: int = 2000
     injection_threshold: float = 0.5
+    # chat guardrails (safety.py): Guardrails AI validators, or the same checks without the library
+    guardrails: Literal["on", "off"] = "on"
+    guardrails_engine: Literal["guardrails-ai", "builtin"] = "guardrails-ai"
+    guard_chat_injection: bool = True
+    chat_injection_threshold: float = 0.7  # stricter than uploads: users may ask *about* prompts
+    toxicity_model: str | None = None  # e.g. unitary/toxic-bert (else threat/insult patterns)
+    toxicity_threshold: float = 0.8
+    guardrails_buffer_output: bool = False  # true: don't stream tokens, send only the checked answer
     injection_model: str | None = None  # e.g. protectai/deberta-v3-base-prompt-injection-v2
 
     # --- observability

@@ -69,6 +69,28 @@ Guardrails: Pydantic validation (message length, slugs, feedback values), slowap
 uploaded passage (pattern rules, optionally a classifier via `INJECTION_MODEL`): flagged passages are
 dropped, and a document where more than half is flagged is rejected.
 
+### Chat guardrails (Guardrails AI)
+
+Every question and every answer passes through Guardrails AI (`service/src/abstain_api/safety.py`, custom
+validators `abstain/prompt_injection`, `abstain/toxicity`, `abstain/secrets_pii`):
+
+| Stage | Check | Action |
+| --- | --- | --- |
+| question | prompt injection / jailbreak (score ≥ `CHAT_INJECTION_THRESHOLD`, 0.7) | **blocked**: fixed reply, the agent and LLM are never called (`decision: "blocked"`) |
+| question | threats / harassment (or `TOXICITY_MODEL`) | **blocked** |
+| question | e-mails, phone numbers, card numbers (Luhn), API keys, passwords, private keys, SSN / Aadhaar / PAN | **redacted** before the LLM, the database or Langfuse see it |
+| answer | toxicity | **blocked**: the answer is replaced, citations dropped |
+| answer | personal data / secrets | **redacted** in the stored and returned answer |
+
+Triggers are streamed as `guardrail` SSE events, stored with the message (`meta.guardrails`), counted in
+Prometheus (`guardrail_events_total{stage,rule,action}`, Grafana panels "Guardrail events" and "Blocked
+questions", alerts `PromptInjectionAttempts` / `AnswersRedacted`) and added as Langfuse tags
+(`guardrail:prompt_injection`, …). Measured on MTRAG: 0 of 1,349 real questions blocked or redacted and 0 of
+24,004 corpus passages flagged, while injection attempts score 0.8–1.0. Tokens are streamed before the output
+check, so clients must render the `final` answer (or set `GUARDRAILS_BUFFER_OUTPUT=true`).
+`GUARDRAILS_ENGINE=builtin` runs the same checks without the library; `GUARDRAILS=off` disables them.
+(LLM Guard was evaluated but pins `transformers==4.51.3`, which conflicts with this project.)
+
 Auth: `AUTH_MODE=jwks` verifies Clerk session tokens (RS256 via the JWKS URL, issuer and `azp`);
 `AUTH_MODE=hs256` verifies a token signed by the Auth.js app with the shared `AUTH_SECRET`; `dev` (no login)
 is refused when `ENV=production`. Admins: `role: admin` claim or `ADMIN_USER_IDS`.

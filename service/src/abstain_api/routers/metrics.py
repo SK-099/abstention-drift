@@ -20,7 +20,7 @@ def _rates(rows) -> dict:
     tot = sum(rows.values())
     return {
         "total": tot,
-        **{k: rows.get(k, 0) for k in ("answer", "abstain", "clarify")},
+        **{k: rows.get(k, 0) for k in ("answer", "abstain", "clarify", "blocked")},
         "abstention_rate": round((rows.get("abstain", 0) + rows.get("clarify", 0)) / tot, 4) if tot else None,
     }
 

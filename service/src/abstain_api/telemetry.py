@@ -23,8 +23,18 @@ class Metrics:
         self.flagged = m.create_counter(
             "injection_chunks_dropped", description="uploaded chunks dropped as prompt injection"
         )
+        self.guardrail = m.create_counter(
+            "guardrail_events", description="chat guardrail triggers by stage/rule/action"
+        )
 
-    DECISIONS = ("answer", "abstain", "clarify")
+    DECISIONS = ("answer", "abstain", "clarify", "blocked")
+    GUARD_EVENTS = (
+        ("input", "prompt_injection", "blocked"),
+        ("input", "toxicity", "blocked"),
+        ("input", "secrets_pii", "redacted"),
+        ("output", "toxicity", "blocked"),
+        ("output", "secrets_pii", "redacted"),
+    )
     FEEDBACK_REASONS = ("", "wrong_refusal", "wrong_answer", "bad_citation", "unclear", "other")
     DOC_STATUSES = ("indexed", "rejected", "failed")
 
@@ -41,6 +51,8 @@ class Metrics:
                 for d in self.DECISIONS:
                     for reason in self.FEEDBACK_REASONS:
                         self.feedback.add(0, {"rating": r, "decision": d, "reason": reason})
+            for stage, rule, action in self.GUARD_EVENTS:
+                self.guardrail.add(0, {"stage": stage, "rule": rule, "action": action})
         if worker:
             for st in self.DOC_STATUSES:
                 self.documents.add(0, {"status": st})
@@ -50,6 +62,10 @@ class Metrics:
         for d in self.DECISIONS:
             self.turns.add(0, {"decision": d, "collection": collection})
         self.retries.add(0, {"collection": collection})
+
+    def guardrail_events(self, events) -> None:
+        for e in events:
+            self.guardrail.add(1, {"stage": e["stage"], "rule": e["rule"], "action": e["action"]})
 
     def turn(self, decision: str, collection: str, seconds: float, timings: dict, retried: bool):
         attrs = {"decision": decision, "collection": collection}
