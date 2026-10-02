@@ -53,7 +53,7 @@ def count(cond):
     return sum(1 for i in ids if cond(base[i][0], base[i][1], agent[i][1]))
 
 
-ab = lambda r: r["abstain"]["abstained"]  # noqa: E731
+ab = lambda r: r["abstain"]["abstained"]
 rec = count(lambda y, b, g: y == 0 and ab(b) and not ab(g))
 lost = count(lambda y, b, g: y == 1 and ab(b) and not ab(g))
 caught = count(lambda y, b, g: y == 1 and not ab(b) and ab(g))

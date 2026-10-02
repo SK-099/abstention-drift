@@ -5,9 +5,9 @@ import io
 import json
 import random
 import zipfile
+from collections.abc import Iterator
 from dataclasses import dataclass, field, replace
 from pathlib import Path
-from typing import Iterator
 
 COLLECTIONS = ("clapnq", "cloud", "fiqa", "govt")
 
@@ -69,7 +69,7 @@ class Task:
     def gold_ids(self) -> list[str]:
         return [c["document_id"] for c in self.contexts]
 
-    def with_(self, **kw) -> "Task":
+    def with_(self, **kw) -> Task:
         return replace(self, **kw)
 
 

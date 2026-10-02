@@ -1,0 +1,1058 @@
+{
+ "source": "MTRAG-UN (mtragun-human)",
+ "seed": 13,
+ "n": 150,
+ "n_unanswerable": 34,
+ "tasks": [
+  {
+   "task_id": "011e67625de275a8bd167a3aae37cfac<::>9",
+   "conversation_id": "011e67625de275a8bd167a3aae37cfac",
+   "turn": 9,
+   "collection": "fiqa",
+   "label": 0
+  },
+  {
+   "task_id": "02cf160ae9c2f0a0809a1fdafa550380<::>7",
+   "conversation_id": "02cf160ae9c2f0a0809a1fdafa550380",
+   "turn": 7,
+   "collection": "cloud",
+   "label": 1
+  },
+  {
+   "task_id": "05d3b75b3e5aee69319bb3937423ab22<::>3",
+   "conversation_id": "05d3b75b3e5aee69319bb3937423ab22",
+   "turn": 3,
+   "collection": "fiqa",
+   "label": 0
+  },
+  {
+   "task_id": "0856a581c752dd10d1f0b19aebf26e34<::>2",
+   "conversation_id": "0856a581c752dd10d1f0b19aebf26e34",
+   "turn": 2,
+   "collection": "cloud",
+   "label": 1
+  },
+  {
+   "task_id": "08d6637b922171f4da2d39dfecdb1b7b<::>6",
+   "conversation_id": "08d6637b922171f4da2d39dfecdb1b7b",
+   "turn": 6,
+   "collection": "fiqa",
+   "label": 0
+  },
+  {
+   "task_id": "08ec067fb5319f2225b9699b3afaa118<::>6",
+   "conversation_id": "08ec067fb5319f2225b9699b3afaa118",
+   "turn": 6,
+   "collection": "clapnq",
+   "label": 0
+  },
+  {
+   "task_id": "098f21c442c360d8daf239010f061a1f<::>4",
+   "conversation_id": "098f21c442c360d8daf239010f061a1f",
+   "turn": 4,
+   "collection": "cloud",
+   "label": 1
+  },
+  {
+   "task_id": "0bac08b5f8ceadb48c12fafb612bece1<::>2",
+   "conversation_id": "0bac08b5f8ceadb48c12fafb612bece1",
+   "turn": 2,
+   "collection": "govt",
+   "label": 0
+  },
+  {
+   "task_id": "0bb0883dcac49ad407f902d6f3720e01<::>4",
+   "conversation_id": "0bb0883dcac49ad407f902d6f3720e01",
+   "turn": 4,
+   "collection": "govt",
+   "label": 0
+  },
+  {
+   "task_id": "0c097d025d949703315abe6e1254e13e<::>7",
+   "conversation_id": "0c097d025d949703315abe6e1254e13e",
+   "turn": 7,
+   "collection": "cloud",
+   "label": 1
+  },
+  {
+   "task_id": "0deb30ba6a17b281d72522da1efff4e4<::>5",
+   "conversation_id": "0deb30ba6a17b281d72522da1efff4e4",
+   "turn": 5,
+   "collection": "clapnq",
+   "label": 0
+  },
+  {
+   "task_id": "13a2bc59f42540a7575f558a0c046dca<::>3",
+   "conversation_id": "13a2bc59f42540a7575f558a0c046dca",
+   "turn": 3,
+   "collection": "fiqa",
+   "label": 0
+  },
+  {
+   "task_id": "13d4dd7172433639010710de00dbe10e<::>6",
+   "conversation_id": "13d4dd7172433639010710de00dbe10e",
+   "turn": 6,
+   "collection": "govt",
+   "label": 1
+  },
+  {
+   "task_id": "1662e1057a0547f12d8259c3e26f2c25<::>3",
+   "conversation_id": "1662e1057a0547f12d8259c3e26f2c25",
+   "turn": 3,
+   "collection": "govt",
+   "label": 1
+  },
+  {
+   "task_id": "18ef26058d321c5d96ca3ebf8117789e<::>7",
+   "conversation_id": "18ef26058d321c5d96ca3ebf8117789e",
+   "turn": 7,
+   "collection": "fiqa",
+   "label": 0
+  },
+  {
+   "task_id": "19a4566bf390a411d2c393fb13eafe95<::>7",
+   "conversation_id": "19a4566bf390a411d2c393fb13eafe95",
+   "turn": 7,
+   "collection": "clapnq",
+   "label": 1
+  },
+  {
+   "task_id": "19dd385da1c4b1096dc47aadf069b8d8<::>5",
+   "conversation_id": "19dd385da1c4b1096dc47aadf069b8d8",
+   "turn": 5,
+   "collection": "clapnq",
+   "label": 1
+  },
+  {
+   "task_id": "1c9999447de5100b82e7ac6a5c1755ee<::>7",
+   "conversation_id": "1c9999447de5100b82e7ac6a5c1755ee",
+   "turn": 7,
+   "collection": "govt",
+   "label": 0
+  },
+  {
+   "task_id": "1d0c5bbfa230a87df5955736c06d4632<::>8",
+   "conversation_id": "1d0c5bbfa230a87df5955736c06d4632",
+   "turn": 8,
+   "collection": "fiqa",
+   "label": 1
+  },
+  {
+   "task_id": "1fa0224ffadd975762e35670512f3a41<::>4",
+   "conversation_id": "1fa0224ffadd975762e35670512f3a41",
+   "turn": 4,
+   "collection": "govt",
+   "label": 0
+  },
+  {
+   "task_id": "203b3547bf1f92479324ce711a6b881d<::>1",
+   "conversation_id": "203b3547bf1f92479324ce711a6b881d",
+   "turn": 1,
+   "collection": "clapnq",
+   "label": 0
+  },
+  {
+   "task_id": "203ce3a4e0ecbb1c4408721162c47f08<::>6",
+   "conversation_id": "203ce3a4e0ecbb1c4408721162c47f08",
+   "turn": 6,
+   "collection": "fiqa",
+   "label": 0
+  },
+  {
+   "task_id": "207a61018da774f24e1c43efde47ae98<::>9",
+   "conversation_id": "207a61018da774f24e1c43efde47ae98",
+   "turn": 9,
+   "collection": "clapnq",
+   "label": 0
+  },
+  {
+   "task_id": "2401e1215e85ebfc87d46eab093741a2<::>7",
+   "conversation_id": "2401e1215e85ebfc87d46eab093741a2",
+   "turn": 7,
+   "collection": "clapnq",
+   "label": 0
+  },
+  {
+   "task_id": "2732ccdebb3ba8f346d4b52c0f45226b<::>4",
+   "conversation_id": "2732ccdebb3ba8f346d4b52c0f45226b",
+   "turn": 4,
+   "collection": "govt",
+   "label": 0
+  },
+  {
+   "task_id": "2bbfa7f2ef39a254b67888bb8f64a8d5<::>2",
+   "conversation_id": "2bbfa7f2ef39a254b67888bb8f64a8d5",
+   "turn": 2,
+   "collection": "govt",
+   "label": 0
+  },
+  {
+   "task_id": "2c0c96a1bee0b392418555c9dab32966<::>5",
+   "conversation_id": "2c0c96a1bee0b392418555c9dab32966",
+   "turn": 5,
+   "collection": "clapnq",
+   "label": 1
+  },
+  {
+   "task_id": "2f65d1793bb804e91c4abdab04897128<::>2",
+   "conversation_id": "2f65d1793bb804e91c4abdab04897128",
+   "turn": 2,
+   "collection": "cloud",
+   "label": 0
+  },
+  {
+   "task_id": "33720e2cc99d142aa6cec9c6ef451d04<::>6",
+   "conversation_id": "33720e2cc99d142aa6cec9c6ef451d04",
+   "turn": 6,
+   "collection": "cloud",
+   "label": 0
+  },
+  {
+   "task_id": "33b1d49258135e39c24ad3dada20a344<::>8",
+   "conversation_id": "33b1d49258135e39c24ad3dada20a344",
+   "turn": 8,
+   "collection": "cloud",
+   "label": 0
+  },
+  {
+   "task_id": "33dde7d1fa46466592c9c673bbf50d74<::>3",
+   "conversation_id": "33dde7d1fa46466592c9c673bbf50d74",
+   "turn": 3,
+   "collection": "clapnq",
+   "label": 0
+  },
+  {
+   "task_id": "34e3afc81436e76136f39711c3d18eae<::>3",
+   "conversation_id": "34e3afc81436e76136f39711c3d18eae",
+   "turn": 3,
+   "collection": "govt",
+   "label": 1
+  },
+  {
+   "task_id": "378b9c8fa2b9e8d571160d52f8392ede<::>2",
+   "conversation_id": "378b9c8fa2b9e8d571160d52f8392ede",
+   "turn": 2,
+   "collection": "cloud",
+   "label": 0
+  },
+  {
+   "task_id": "38d11f48b3b4f613559ba2de1b2b8668<::>2",
+   "conversation_id": "38d11f48b3b4f613559ba2de1b2b8668",
+   "turn": 2,
+   "collection": "cloud",
+   "label": 0
+  },
+  {
+   "task_id": "3a44984a1b74e5be70f01e8a60c3ea14<::>2",
+   "conversation_id": "3a44984a1b74e5be70f01e8a60c3ea14",
+   "turn": 2,
+   "collection": "clapnq",
+   "label": 0
+  },
+  {
+   "task_id": "3ba28d8900b0cd4fb387c8c5f089a619<::>5",
+   "conversation_id": "3ba28d8900b0cd4fb387c8c5f089a619",
+   "turn": 5,
+   "collection": "cloud",
+   "label": 0
+  },
+  {
+   "task_id": "3de4d6c45648e2df7315afad904ddfc8<::>7",
+   "conversation_id": "3de4d6c45648e2df7315afad904ddfc8",
+   "turn": 7,
+   "collection": "govt",
+   "label": 0
+  },
+  {
+   "task_id": "3eecc1c28724476a2fe4196a3a42200f<::>6",
+   "conversation_id": "3eecc1c28724476a2fe4196a3a42200f",
+   "turn": 6,
+   "collection": "clapnq",
+   "label": 1
+  },
+  {
+   "task_id": "3f01b86177e027bb469bfde135477172<::>7",
+   "conversation_id": "3f01b86177e027bb469bfde135477172",
+   "turn": 7,
+   "collection": "govt",
+   "label": 0
+  },
+  {
+   "task_id": "3feea5e059a27e22383f34c6d06b1473<::>4",
+   "conversation_id": "3feea5e059a27e22383f34c6d06b1473",
+   "turn": 4,
+   "collection": "govt",
+   "label": 0
+  },
+  {
+   "task_id": "405bb3e019f151a378cfe81ab517ae80<::>3",
+   "conversation_id": "405bb3e019f151a378cfe81ab517ae80",
+   "turn": 3,
+   "collection": "clapnq",
+   "label": 0
+  },
+  {
+   "task_id": "40c1331d50ad2eb208240aaf981cac03<::>8",
+   "conversation_id": "40c1331d50ad2eb208240aaf981cac03",
+   "turn": 8,
+   "collection": "cloud",
+   "label": 1
+  },
+  {
+   "task_id": "43ad1b7dbc97803167d4b175547c3c72<::>10",
+   "conversation_id": "43ad1b7dbc97803167d4b175547c3c72",
+   "turn": 10,
+   "collection": "govt",
+   "label": 0
+  },
+  {
+   "task_id": "473a6bad3e82cfeab3b356de92a04e75<::>8",
+   "conversation_id": "473a6bad3e82cfeab3b356de92a04e75",
+   "turn": 8,
+   "collection": "govt",
+   "label": 0
+  },
+  {
+   "task_id": "48135dd397e9cbf47befd085914ab447<::>3",
+   "conversation_id": "48135dd397e9cbf47befd085914ab447",
+   "turn": 3,
+   "collection": "fiqa",
+   "label": 0
+  },
+  {
+   "task_id": "49ba68f52c55f78d6d03aa501608f90e<::>6",
+   "conversation_id": "49ba68f52c55f78d6d03aa501608f90e",
+   "turn": 6,
+   "collection": "govt",
+   "label": 0
+  },
+  {
+   "task_id": "4adaa7ea7b48013f7ae37f310989507c<::>6",
+   "conversation_id": "4adaa7ea7b48013f7ae37f310989507c",
+   "turn": 6,
+   "collection": "fiqa",
+   "label": 0
+  },
+  {
+   "task_id": "4b1bc5043b1c37031b78cbfe28332583<::>6",
+   "conversation_id": "4b1bc5043b1c37031b78cbfe28332583",
+   "turn": 6,
+   "collection": "clapnq",
+   "label": 0
+  },
+  {
+   "task_id": "4e6b921cc5344219050b61180365bcb2<::>7",
+   "conversation_id": "4e6b921cc5344219050b61180365bcb2",
+   "turn": 7,
+   "collection": "govt",
+   "label": 0
+  },
+  {
+   "task_id": "4ead9b33e49bcf239faffb701eff5b04<::>5",
+   "conversation_id": "4ead9b33e49bcf239faffb701eff5b04",
+   "turn": 5,
+   "collection": "cloud",
+   "label": 0
+  },
+  {
+   "task_id": "514deeb00eb0aef56f5113bce69240ab<::>7",
+   "conversation_id": "514deeb00eb0aef56f5113bce69240ab",
+   "turn": 7,
+   "collection": "clapnq",
+   "label": 1
+  },
+  {
+   "task_id": "54a38e9ec473b239641abdc43066a2db<::>2",
+   "conversation_id": "54a38e9ec473b239641abdc43066a2db",
+   "turn": 2,
+   "collection": "clapnq",
+   "label": 0
+  },
+  {
+   "task_id": "54d9a88c3a7eb603264e33c90d6a3865<::>2",
+   "conversation_id": "54d9a88c3a7eb603264e33c90d6a3865",
+   "turn": 2,
+   "collection": "fiqa",
+   "label": 0
+  },
+  {
+   "task_id": "54e0d90032ad6d44122ba4c31cb1c375<::>2",
+   "conversation_id": "54e0d90032ad6d44122ba4c31cb1c375",
+   "turn": 2,
+   "collection": "cloud",
+   "label": 0
+  },
+  {
+   "task_id": "56d630ac3c6de3bbc07db1bc92d9c40e<::>3",
+   "conversation_id": "56d630ac3c6de3bbc07db1bc92d9c40e",
+   "turn": 3,
+   "collection": "clapnq",
+   "label": 0
+  },
+  {
+   "task_id": "585e48f3470b067968f7a204a108ea29<::>7",
+   "conversation_id": "585e48f3470b067968f7a204a108ea29",
+   "turn": 7,
+   "collection": "clapnq",
+   "label": 0
+  },
+  {
+   "task_id": "588481edb644142e9149a89eef662632<::>6",
+   "conversation_id": "588481edb644142e9149a89eef662632",
+   "turn": 6,
+   "collection": "cloud",
+   "label": 0
+  },
+  {
+   "task_id": "5bda1629d209194d02bd50b0a7926720<::>5",
+   "conversation_id": "5bda1629d209194d02bd50b0a7926720",
+   "turn": 5,
+   "collection": "cloud",
+   "label": 0
+  },
+  {
+   "task_id": "5c53e91fe408aff4acea56d990730a13<::>4",
+   "conversation_id": "5c53e91fe408aff4acea56d990730a13",
+   "turn": 4,
+   "collection": "cloud",
+   "label": 1
+  },
+  {
+   "task_id": "5cef153748f1999ca71855ac3e8fd5b3<::>4",
+   "conversation_id": "5cef153748f1999ca71855ac3e8fd5b3",
+   "turn": 4,
+   "collection": "govt",
+   "label": 0
+  },
+  {
+   "task_id": "5cfb768c0a25c561898adac7afc988a2<::>5",
+   "conversation_id": "5cfb768c0a25c561898adac7afc988a2",
+   "turn": 5,
+   "collection": "fiqa",
+   "label": 0
+  },
+  {
+   "task_id": "5f51aeba2faf9b75d89d66c417a43540<::>3",
+   "conversation_id": "5f51aeba2faf9b75d89d66c417a43540",
+   "turn": 3,
+   "collection": "cloud",
+   "label": 0
+  },
+  {
+   "task_id": "675c89e667a5e3a2d50f1baa0b9de8fb<::>2",
+   "conversation_id": "675c89e667a5e3a2d50f1baa0b9de8fb",
+   "turn": 2,
+   "collection": "clapnq",
+   "label": 0
+  },
+  {
+   "task_id": "69330b021d394d467bd84bea8322ba74<::>8",
+   "conversation_id": "69330b021d394d467bd84bea8322ba74",
+   "turn": 8,
+   "collection": "fiqa",
+   "label": 0
+  },
+  {
+   "task_id": "6a618ed660ae299ab1ce599e600214c1<::>5",
+   "conversation_id": "6a618ed660ae299ab1ce599e600214c1",
+   "turn": 5,
+   "collection": "cloud",
+   "label": 0
+  },
+  {
+   "task_id": "6cde1823d6e022c5a9dbe9dd7e05c9d4<::>9",
+   "conversation_id": "6cde1823d6e022c5a9dbe9dd7e05c9d4",
+   "turn": 9,
+   "collection": "clapnq",
+   "label": 0
+  },
+  {
+   "task_id": "6da5ffc018f9a4a526debf9566f6a64d<::>6",
+   "conversation_id": "6da5ffc018f9a4a526debf9566f6a64d",
+   "turn": 6,
+   "collection": "cloud",
+   "label": 1
+  },
+  {
+   "task_id": "70132d7b11d9c45c97e82d6017042333<::>6",
+   "conversation_id": "70132d7b11d9c45c97e82d6017042333",
+   "turn": 6,
+   "collection": "cloud",
+   "label": 0
+  },
+  {
+   "task_id": "7045ae330ada6b11e3a9ab3eeeba2f6c<::>5",
+   "conversation_id": "7045ae330ada6b11e3a9ab3eeeba2f6c",
+   "turn": 5,
+   "collection": "govt",
+   "label": 0
+  },
+  {
+   "task_id": "70756e104a04f131739b86c2eb0a70e6<::>6",
+   "conversation_id": "70756e104a04f131739b86c2eb0a70e6",
+   "turn": 6,
+   "collection": "govt",
+   "label": 0
+  },
+  {
+   "task_id": "709075ff95308941d87f8c41d96e8a88<::>1",
+   "conversation_id": "709075ff95308941d87f8c41d96e8a88",
+   "turn": 1,
+   "collection": "clapnq",
+   "label": 0
+  },
+  {
+   "task_id": "723c8555cc0f8f94960ae7dca81a4b48<::>8",
+   "conversation_id": "723c8555cc0f8f94960ae7dca81a4b48",
+   "turn": 8,
+   "collection": "cloud",
+   "label": 0
+  },
+  {
+   "task_id": "76d98d2dd66bf456ec089bdc953df597<::>6",
+   "conversation_id": "76d98d2dd66bf456ec089bdc953df597",
+   "turn": 6,
+   "collection": "cloud",
+   "label": 0
+  },
+  {
+   "task_id": "77587e417e37aa901ccb90dd07cf29e8<::>3",
+   "conversation_id": "77587e417e37aa901ccb90dd07cf29e8",
+   "turn": 3,
+   "collection": "govt",
+   "label": 0
+  },
+  {
+   "task_id": "7eaf4e83c26eb39a908ed49f708e16e6<::>6",
+   "conversation_id": "7eaf4e83c26eb39a908ed49f708e16e6",
+   "turn": 6,
+   "collection": "govt",
+   "label": 0
+  },
+  {
+   "task_id": "7ebe9232615d7c54f67153aa8257900f<::>3",
+   "conversation_id": "7ebe9232615d7c54f67153aa8257900f",
+   "turn": 3,
+   "collection": "govt",
+   "label": 1
+  },
+  {
+   "task_id": "81595fbce3b3bc2ab66ebebc01346539<::>7",
+   "conversation_id": "81595fbce3b3bc2ab66ebebc01346539",
+   "turn": 7,
+   "collection": "clapnq",
+   "label": 1
+  },
+  {
+   "task_id": "81b7060c04d14d2240cb0c917046569e<::>4",
+   "conversation_id": "81b7060c04d14d2240cb0c917046569e",
+   "turn": 4,
+   "collection": "fiqa",
+   "label": 1
+  },
+  {
+   "task_id": "869df921731a222a754f79a418517a80<::>3",
+   "conversation_id": "869df921731a222a754f79a418517a80",
+   "turn": 3,
+   "collection": "govt",
+   "label": 0
+  },
+  {
+   "task_id": "897c306fb5ae11d34aded45bbcae07e0<::>6",
+   "conversation_id": "897c306fb5ae11d34aded45bbcae07e0",
+   "turn": 6,
+   "collection": "govt",
+   "label": 1
+  },
+  {
+   "task_id": "8c64105baa800a3049fbeee4e47cb61e<::>2",
+   "conversation_id": "8c64105baa800a3049fbeee4e47cb61e",
+   "turn": 2,
+   "collection": "cloud",
+   "label": 0
+  },
+  {
+   "task_id": "8d962dabef135d1d95aea85f33dddb12<::>8",
+   "conversation_id": "8d962dabef135d1d95aea85f33dddb12",
+   "turn": 8,
+   "collection": "fiqa",
+   "label": 0
+  },
+  {
+   "task_id": "8eaec9020a315fa21363db6109498c05<::>1",
+   "conversation_id": "8eaec9020a315fa21363db6109498c05",
+   "turn": 1,
+   "collection": "fiqa",
+   "label": 0
+  },
+  {
+   "task_id": "9314dde015b7356429ad847bbb37fdb0<::>5",
+   "conversation_id": "9314dde015b7356429ad847bbb37fdb0",
+   "turn": 5,
+   "collection": "cloud",
+   "label": 1
+  },
+  {
+   "task_id": "938091834acea007bcc657be70d4e6c1<::>4",
+   "conversation_id": "938091834acea007bcc657be70d4e6c1",
+   "turn": 4,
+   "collection": "cloud",
+   "label": 0
+  },
+  {
+   "task_id": "94d8758f3162260614fe11074345d563<::>2",
+   "conversation_id": "94d8758f3162260614fe11074345d563",
+   "turn": 2,
+   "collection": "govt",
+   "label": 0
+  },
+  {
+   "task_id": "96bdf7a5d06c7c027a5bf205a4f0d945<::>7",
+   "conversation_id": "96bdf7a5d06c7c027a5bf205a4f0d945",
+   "turn": 7,
+   "collection": "cloud",
+   "label": 0
+  },
+  {
+   "task_id": "97aece816016b6fbd6a25c04805a7f5f<::>1",
+   "conversation_id": "97aece816016b6fbd6a25c04805a7f5f",
+   "turn": 1,
+   "collection": "cloud",
+   "label": 0
+  },
+  {
+   "task_id": "98d6f176e0635d7bc11bae54b88dff05<::>5",
+   "conversation_id": "98d6f176e0635d7bc11bae54b88dff05",
+   "turn": 5,
+   "collection": "cloud",
+   "label": 1
+  },
+  {
+   "task_id": "9e546a01f75a8a67b1e4088f4c8cac34<::>1",
+   "conversation_id": "9e546a01f75a8a67b1e4088f4c8cac34",
+   "turn": 1,
+   "collection": "clapnq",
+   "label": 0
+  },
+  {
+   "task_id": "a3baa1728ac1d8a2e75aa12d2f154dac<::>6",
+   "conversation_id": "a3baa1728ac1d8a2e75aa12d2f154dac",
+   "turn": 6,
+   "collection": "govt",
+   "label": 1
+  },
+  {
+   "task_id": "a428ccbd537c8a331b1d5f90c67318d2<::>4",
+   "conversation_id": "a428ccbd537c8a331b1d5f90c67318d2",
+   "turn": 4,
+   "collection": "fiqa",
+   "label": 0
+  },
+  {
+   "task_id": "a8d2db7b96dec81f8eb8907dbd6d7d01<::>7",
+   "conversation_id": "a8d2db7b96dec81f8eb8907dbd6d7d01",
+   "turn": 7,
+   "collection": "clapnq",
+   "label": 1
+  },
+  {
+   "task_id": "a9859d1e604fd5a5ce8a4b9f4f251475<::>1",
+   "conversation_id": "a9859d1e604fd5a5ce8a4b9f4f251475",
+   "turn": 1,
+   "collection": "govt",
+   "label": 1
+  },
+  {
+   "task_id": "aa06ae124e0fe341dcfaebf948a1aaf2<::>4",
+   "conversation_id": "aa06ae124e0fe341dcfaebf948a1aaf2",
+   "turn": 4,
+   "collection": "cloud",
+   "label": 0
+  },
+  {
+   "task_id": "acc73dd5b0d8b8dfdef1fe111b6758d3<::>6",
+   "conversation_id": "acc73dd5b0d8b8dfdef1fe111b6758d3",
+   "turn": 6,
+   "collection": "govt",
+   "label": 0
+  },
+  {
+   "task_id": "acecf297d7cd80c76d37abe0862187d6<::>2",
+   "conversation_id": "acecf297d7cd80c76d37abe0862187d6",
+   "turn": 2,
+   "collection": "fiqa",
+   "label": 0
+  },
+  {
+   "task_id": "b3023c9da0f35459b2b7a1c8ba2cac83<::>6",
+   "conversation_id": "b3023c9da0f35459b2b7a1c8ba2cac83",
+   "turn": 6,
+   "collection": "clapnq",
+   "label": 0
+  },
+  {
+   "task_id": "b3b321e9ea81d1d90e528f85fff72d63<::>8",
+   "conversation_id": "b3b321e9ea81d1d90e528f85fff72d63",
+   "turn": 8,
+   "collection": "cloud",
+   "label": 0
+  },
+  {
+   "task_id": "b41da0040de159563ff1f4b8ed989902<::>5",
+   "conversation_id": "b41da0040de159563ff1f4b8ed989902",
+   "turn": 5,
+   "collection": "govt",
+   "label": 0
+  },
+  {
+   "task_id": "b74f359a52edada8353469010140e5b0<::>7",
+   "conversation_id": "b74f359a52edada8353469010140e5b0",
+   "turn": 7,
+   "collection": "cloud",
+   "label": 1
+  },
+  {
+   "task_id": "b97a2b7f509c5e21ca6ee401b76896b4<::>4",
+   "conversation_id": "b97a2b7f509c5e21ca6ee401b76896b4",
+   "turn": 4,
+   "collection": "cloud",
+   "label": 0
+  },
+  {
+   "task_id": "ba9314dad82668c43b89dfa4afbe7416<::>3",
+   "conversation_id": "ba9314dad82668c43b89dfa4afbe7416",
+   "turn": 3,
+   "collection": "clapnq",
+   "label": 0
+  },
+  {
+   "task_id": "bb20ce5e9eb61c94b2270265ddc05070<::>4",
+   "conversation_id": "bb20ce5e9eb61c94b2270265ddc05070",
+   "turn": 4,
+   "collection": "fiqa",
+   "label": 0
+  },
+  {
+   "task_id": "bcde3d557842137da8262778561ec609<::>2",
+   "conversation_id": "bcde3d557842137da8262778561ec609",
+   "turn": 2,
+   "collection": "clapnq",
+   "label": 0
+  },
+  {
+   "task_id": "bcfda7169ecea56bc4f51b76e1457084<::>3",
+   "conversation_id": "bcfda7169ecea56bc4f51b76e1457084",
+   "turn": 3,
+   "collection": "clapnq",
+   "label": 0
+  },
+  {
+   "task_id": "bddd7437dee2ce9880808ddf1722840d<::>3",
+   "conversation_id": "bddd7437dee2ce9880808ddf1722840d",
+   "turn": 3,
+   "collection": "govt",
+   "label": 0
+  },
+  {
+   "task_id": "c359d515f4e49833a10623e0287ec224<::>1",
+   "conversation_id": "c359d515f4e49833a10623e0287ec224",
+   "turn": 1,
+   "collection": "cloud",
+   "label": 0
+  },
+  {
+   "task_id": "c3b1c7fe0c84e3880d02639c2388a515<::>7",
+   "conversation_id": "c3b1c7fe0c84e3880d02639c2388a515",
+   "turn": 7,
+   "collection": "govt",
+   "label": 0
+  },
+  {
+   "task_id": "c3c074e27d127666d0cd699583a10f7e<::>2",
+   "conversation_id": "c3c074e27d127666d0cd699583a10f7e",
+   "turn": 2,
+   "collection": "govt",
+   "label": 0
+  },
+  {
+   "task_id": "c52af91a8935312716dc88b9f1bb971b<::>4",
+   "conversation_id": "c52af91a8935312716dc88b9f1bb971b",
+   "turn": 4,
+   "collection": "fiqa",
+   "label": 0
+  },
+  {
+   "task_id": "c5df4eb0d83a9adf60c49bce924946b1<::>9",
+   "conversation_id": "c5df4eb0d83a9adf60c49bce924946b1",
+   "turn": 9,
+   "collection": "cloud",
+   "label": 0
+  },
+  {
+   "task_id": "c5fb0bbd12e32a877366570e969be5a2<::>5",
+   "conversation_id": "c5fb0bbd12e32a877366570e969be5a2",
+   "turn": 5,
+   "collection": "govt",
+   "label": 0
+  },
+  {
+   "task_id": "c60bfdff302c9ac25e437ff966267c19<::>3",
+   "conversation_id": "c60bfdff302c9ac25e437ff966267c19",
+   "turn": 3,
+   "collection": "govt",
+   "label": 0
+  },
+  {
+   "task_id": "c642ef235393cf258d1cc35861d91294<::>1",
+   "conversation_id": "c642ef235393cf258d1cc35861d91294",
+   "turn": 1,
+   "collection": "govt",
+   "label": 0
+  },
+  {
+   "task_id": "ca67e19355974e88ffcaea3b580ae480<::>5",
+   "conversation_id": "ca67e19355974e88ffcaea3b580ae480",
+   "turn": 5,
+   "collection": "govt",
+   "label": 0
+  },
+  {
+   "task_id": "ca8d50234355b3927ba731817f9fce4e<::>2",
+   "conversation_id": "ca8d50234355b3927ba731817f9fce4e",
+   "turn": 2,
+   "collection": "govt",
+   "label": 0
+  },
+  {
+   "task_id": "caa82c67bf03df6c2c509fd5ca13b4be<::>6",
+   "conversation_id": "caa82c67bf03df6c2c509fd5ca13b4be",
+   "turn": 6,
+   "collection": "cloud",
+   "label": 0
+  },
+  {
+   "task_id": "ccd8ff47ae5b3d5ab9e6f5db9ca707e3<::>4",
+   "conversation_id": "ccd8ff47ae5b3d5ab9e6f5db9ca707e3",
+   "turn": 4,
+   "collection": "fiqa",
+   "label": 1
+  },
+  {
+   "task_id": "cdc94637308f906fad88958f239da379<::>2",
+   "conversation_id": "cdc94637308f906fad88958f239da379",
+   "turn": 2,
+   "collection": "cloud",
+   "label": 0
+  },
+  {
+   "task_id": "d0051e8888890a496a5e226ff11a2e1b<::>4",
+   "conversation_id": "d0051e8888890a496a5e226ff11a2e1b",
+   "turn": 4,
+   "collection": "govt",
+   "label": 0
+  },
+  {
+   "task_id": "d368783a56868b6cc7ba373b4ae969a2<::>9",
+   "conversation_id": "d368783a56868b6cc7ba373b4ae969a2",
+   "turn": 9,
+   "collection": "cloud",
+   "label": 0
+  },
+  {
+   "task_id": "d3e3351917325663f8516452b879d661<::>7",
+   "conversation_id": "d3e3351917325663f8516452b879d661",
+   "turn": 7,
+   "collection": "govt",
+   "label": 1
+  },
+  {
+   "task_id": "dfd433a7da52498ef8eb600df0c6ca37<::>3",
+   "conversation_id": "dfd433a7da52498ef8eb600df0c6ca37",
+   "turn": 3,
+   "collection": "govt",
+   "label": 0
+  },
+  {
+   "task_id": "e01f273aa1617843e68501ccee4ef18a<::>3",
+   "conversation_id": "e01f273aa1617843e68501ccee4ef18a",
+   "turn": 3,
+   "collection": "govt",
+   "label": 0
+  },
+  {
+   "task_id": "e3355b7cc9ee1ec4c9d3ff137cf8ddb6<::>3",
+   "conversation_id": "e3355b7cc9ee1ec4c9d3ff137cf8ddb6",
+   "turn": 3,
+   "collection": "govt",
+   "label": 0
+  },
+  {
+   "task_id": "e34b083a9b5c1f66eefd69b94c5bc139<::>7",
+   "conversation_id": "e34b083a9b5c1f66eefd69b94c5bc139",
+   "turn": 7,
+   "collection": "govt",
+   "label": 0
+  },
+  {
+   "task_id": "e4625702b96980f889f1237169ddee9c<::>6",
+   "conversation_id": "e4625702b96980f889f1237169ddee9c",
+   "turn": 6,
+   "collection": "fiqa",
+   "label": 0
+  },
+  {
+   "task_id": "e73740b57b77aa41d52e3e3581bd6f92<::>7",
+   "conversation_id": "e73740b57b77aa41d52e3e3581bd6f92",
+   "turn": 7,
+   "collection": "clapnq",
+   "label": 0
+  },
+  {
+   "task_id": "e758eda3a11f71e793f0bcf00c5ffdc2<::>7",
+   "conversation_id": "e758eda3a11f71e793f0bcf00c5ffdc2",
+   "turn": 7,
+   "collection": "cloud",
+   "label": 1
+  },
+  {
+   "task_id": "e761edfc190a5e53970c40f188b46f19<::>7",
+   "conversation_id": "e761edfc190a5e53970c40f188b46f19",
+   "turn": 7,
+   "collection": "govt",
+   "label": 0
+  },
+  {
+   "task_id": "eb15222ad81d0e43c9bfff0fd22d72fa<::>5",
+   "conversation_id": "eb15222ad81d0e43c9bfff0fd22d72fa",
+   "turn": 5,
+   "collection": "fiqa",
+   "label": 0
+  },
+  {
+   "task_id": "ee06e2cc82ff4982cf3e8d121e9cab21<::>4",
+   "conversation_id": "ee06e2cc82ff4982cf3e8d121e9cab21",
+   "turn": 4,
+   "collection": "clapnq",
+   "label": 0
+  },
+  {
+   "task_id": "efd7ad3060f67b92cd2246a3129fd494<::>6",
+   "conversation_id": "efd7ad3060f67b92cd2246a3129fd494",
+   "turn": 6,
+   "collection": "cloud",
+   "label": 0
+  },
+  {
+   "task_id": "f00a78969fa899dcc9d0ec0356f3053e<::>6",
+   "conversation_id": "f00a78969fa899dcc9d0ec0356f3053e",
+   "turn": 6,
+   "collection": "govt",
+   "label": 0
+  },
+  {
+   "task_id": "f2658f42ae7dd6ea374c1c32c74429ae<::>6",
+   "conversation_id": "f2658f42ae7dd6ea374c1c32c74429ae",
+   "turn": 6,
+   "collection": "govt",
+   "label": 1
+  },
+  {
+   "task_id": "f2f70b2170e0206eb047a210cee4766c<::>1",
+   "conversation_id": "f2f70b2170e0206eb047a210cee4766c",
+   "turn": 1,
+   "collection": "clapnq",
+   "label": 0
+  },
+  {
+   "task_id": "f4a2051b4c0fb24b0c86f4a99de23cf6<::>9",
+   "conversation_id": "f4a2051b4c0fb24b0c86f4a99de23cf6",
+   "turn": 9,
+   "collection": "cloud",
+   "label": 1
+  },
+  {
+   "task_id": "f54aec0cedecf6bca740f83ec70a2758<::>5",
+   "conversation_id": "f54aec0cedecf6bca740f83ec70a2758",
+   "turn": 5,
+   "collection": "clapnq",
+   "label": 0
+  },
+  {
+   "task_id": "f5b5b43a9e9534844cc2580c9fafc1d9<::>9",
+   "conversation_id": "f5b5b43a9e9534844cc2580c9fafc1d9",
+   "turn": 9,
+   "collection": "cloud",
+   "label": 0
+  },
+  {
+   "task_id": "f733c9e975d1566dbb0cb1559d3200eb<::>2",
+   "conversation_id": "f733c9e975d1566dbb0cb1559d3200eb",
+   "turn": 2,
+   "collection": "clapnq",
+   "label": 0
+  },
+  {
+   "task_id": "f74a778897e85d915a74ff93d06e88be<::>3",
+   "conversation_id": "f74a778897e85d915a74ff93d06e88be",
+   "turn": 3,
+   "collection": "fiqa",
+   "label": 1
+  },
+  {
+   "task_id": "f77868d59f9f04ea696c58bdfd0bb786<::>3",
+   "conversation_id": "f77868d59f9f04ea696c58bdfd0bb786",
+   "turn": 3,
+   "collection": "clapnq",
+   "label": 0
+  },
+  {
+   "task_id": "f7e9bcf0e500e434de1c834408351a43<::>2",
+   "conversation_id": "f7e9bcf0e500e434de1c834408351a43",
+   "turn": 2,
+   "collection": "cloud",
+   "label": 0
+  },
+  {
+   "task_id": "f861066c43ddaa8b52889fb2414630f9<::>9",
+   "conversation_id": "f861066c43ddaa8b52889fb2414630f9",
+   "turn": 9,
+   "collection": "clapnq",
+   "label": 1
+  },
+  {
+   "task_id": "f99eeed688e3818892e8d92b6ae8d129<::>6",
+   "conversation_id": "f99eeed688e3818892e8d92b6ae8d129",
+   "turn": 6,
+   "collection": "cloud",
+   "label": 1
+  },
+  {
+   "task_id": "fa60731970330a3f86312cd7c38762c0<::>2",
+   "conversation_id": "fa60731970330a3f86312cd7c38762c0",
+   "turn": 2,
+   "collection": "fiqa",
+   "label": 0
+  },
+  {
+   "task_id": "fbe3d113b75e73ebe08e399101796a08<::>3",
+   "conversation_id": "fbe3d113b75e73ebe08e399101796a08",
+   "turn": 3,
+   "collection": "clapnq",
+   "label": 0
+  },
+  {
+   "task_id": "fc27e1775e1cb21e30dac1e2bc947490<::>6",
+   "conversation_id": "fc27e1775e1cb21e30dac1e2bc947490",
+   "turn": 6,
+   "collection": "clapnq",
+   "label": 0
+  },
+  {
+   "task_id": "fdb7271f306731dcda8599b945e3d220<::>2",
+   "conversation_id": "fdb7271f306731dcda8599b945e3d220",
+   "turn": 2,
+   "collection": "clapnq",
+   "label": 0
+  }
+ ]
+}

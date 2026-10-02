@@ -71,7 +71,7 @@ system = AbstainRAG(QueryRewriter(mode, llm=llm, oracle=load_rewrites(d), **rw_k
 
 out = Path(cfg["data"]["output_dir"]); out.mkdir(exist_ok=True)
 path = out / f"{a.system}_{a.split}.jsonl"
-from collections import defaultdict  # noqa: E402
+from collections import defaultdict
 
 totals, counts = defaultdict(float), defaultdict(int)
 with open(path, "w", encoding="utf-8") as f:

@@ -23,9 +23,12 @@ LangChain pieces: `ChatOllama` for the LLM (wrapped so the existing prompts can 
 """
 from __future__ import annotations
 
+import contextvars
 import time
+from collections.abc import Callable
+from contextlib import contextmanager
 from dataclasses import dataclass, field
-from typing import Any, Callable, Optional, TypedDict
+from typing import Any, TypedDict
 
 from .data import Task, format_history
 from .generate import format_passages, generate_answer
@@ -54,6 +57,21 @@ CLARIFY_PROMPT = (
     "The question is ambiguous. Ask the user ONE short clarifying question that would let you answer it. "
     "Output only the question."
 )
+
+
+# Set while the `generate` node runs. An LLM wrapper that supports streaming (the web service's
+# OpenAI-compatible client) emits each token through LangGraph's stream writer while this is True;
+# other wrappers ignore it, so research runs are unaffected.
+STREAM_TOKENS: contextvars.ContextVar[bool] = contextvars.ContextVar("stream_tokens", default=False)
+
+
+@contextmanager
+def streaming_tokens():
+    tok = STREAM_TOKENS.set(True)
+    try:
+        yield
+    finally:
+        STREAM_TOKENS.reset(tok)
 
 
 def _yes(text: str, default: bool) -> bool:
@@ -141,7 +159,7 @@ class AgentState(TypedDict, total=False):
     query: str
     queries: list
     passages: list
-    p: Optional[float]
+    p: float | None
     answer: str
     decision: str               # answer | abstain | clarify
     reason: str                 # gate | generator | self-check | clarify | none
@@ -154,7 +172,7 @@ class AgentOutput:
     task_id: str
     query: str
     passages: list
-    p_unanswerable: Optional[float]
+    p_unanswerable: float | None
     abstained: bool
     answer: str
     abstained_by: str
@@ -171,7 +189,10 @@ class AbstentionAgent:
 
     def __init__(self, llm, retriever, gate=None, threshold: float | None = None, max_retries: int = 1,
                  rewrite_kwargs: dict | None = None, gen_kwargs: dict | None = None,
-                 self_check: bool = True, clarify: bool = True, self_check_min_p: float = 0.0):
+                 self_check: bool = True, clarify: bool = True, self_check_min_p: float = 0.0,
+                 checkpointer=None):
+        """checkpointer: optional LangGraph checkpointer (e.g. PostgresSaver) that persists the agent
+        state per conversation thread; pass thread_id when calling the agent."""
         from langgraph.graph import END, StateGraph
 
         self.llm, self.retriever, self.gate = llm, retriever, gate
@@ -197,7 +218,7 @@ class AbstentionAgent:
         g.add_edge("self_check", END)
         g.add_conditional_edges("retry", self._after_retry, {"again": "rewrite", "give_up": "clarify_or_abstain"})
         g.add_edge("clarify_or_abstain", END)
-        self.graph = g.compile()
+        self.graph = g.compile(checkpointer=checkpointer)
 
     # -- helpers
     def _cached(self, s: AgentState, key: str):
@@ -246,7 +267,8 @@ class AbstentionAgent:
         t0 = time.perf_counter()
         a = self._cached(s, "answer")
         if a is None:
-            a = generate_answer(self.llm, s["task"], s["passages"], **self.gen_kw)
+            with streaming_tokens():
+                a = generate_answer(self.llm, s["task"], s["passages"], **self.gen_kw)
         refused = is_idk(a)
         return {"answer": a, "trace": list(s["trace"]) + [f"generate[{s.get('attempt', 0)}]: {'refused' if refused else 'answered'}"],
                 "timings": self._tick(s, "generate", t0)}
@@ -294,15 +316,51 @@ class AbstentionAgent:
         return "again" if s["attempt"] <= self.max_retries else "give_up"
 
     # -- public
-    def __call__(self, task: Task, cache: dict | None = None) -> AgentOutput:
-        s = self.graph.invoke({"task": task, "cache": cache or {}, "attempt": 0, "queries": [], "trace": [],
-                               "timings": {}}, config={"recursion_limit": 50})
-        dec = s.get("decision", "abstain")
+    @staticmethod
+    def initial_state(task: Task, cache: dict | None = None) -> dict:
+        return {"task": task, "cache": cache or {}, "attempt": 0, "queries": [], "trace": [], "timings": {},
+                "decision": "", "reason": "", "answer": "", "p": None}
+
+    @staticmethod
+    def output_from_state(task: Task, s: dict) -> AgentOutput:
+        dec = s.get("decision") or "abstain"
         return AgentOutput(task.task_id, s.get("query", ""), s.get("passages", []), s.get("p"),
                            dec != "answer", s.get("answer", IDK_RESPONSE),
                            "none" if dec == "answer" else s.get("reason", "gate"), dec,
                            max(len(s.get("queries", [])) - 1, 0), s.get("queries", []), s.get("trace", []),
                            s.get("timings", {}))
+
+    @staticmethod
+    def make_config(thread_id: str | None = None, callbacks: list | None = None, metadata: dict | None = None) -> dict:
+        cfg: dict = {"recursion_limit": 50}
+        if thread_id:
+            cfg["configurable"] = {"thread_id": thread_id}
+        if callbacks:
+            cfg["callbacks"] = callbacks
+        if metadata:
+            cfg["metadata"] = metadata
+        return cfg
+
+    def __call__(self, task: Task, cache: dict | None = None, thread_id: str | None = None,
+                 callbacks: list | None = None, metadata: dict | None = None) -> AgentOutput:
+        s = self.graph.invoke(self.initial_state(task, cache), config=self.make_config(thread_id, callbacks, metadata))
+        return self.output_from_state(task, s)
+
+    def stream(self, task: Task, thread_id: str | None = None, callbacks: list | None = None,
+               metadata: dict | None = None, cache: dict | None = None):
+        """Yield ("step", node, trace_line), ("token", text) while the graph runs, then ("final", AgentOutput)."""
+        cfg = self.make_config(thread_id, callbacks, metadata)
+        state = self.initial_state(task, cache)
+        for mode, chunk in self.graph.stream(state, config=cfg, stream_mode=["updates", "custom", "values"]):
+            if mode == "custom" and isinstance(chunk, dict) and chunk.get("type") == "token":
+                yield ("token", chunk["text"])
+            elif mode == "updates":
+                for node, upd in (chunk or {}).items():
+                    tr = (upd or {}).get("trace") or []
+                    yield ("step", node, tr[-1] if tr else node)
+            elif mode == "values":
+                state = chunk
+        yield ("final", self.output_from_state(task, state))
 
 
 def make_agent_llm(llm_cfg: dict):

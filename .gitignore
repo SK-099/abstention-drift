@@ -8,3 +8,10 @@ outputs/
 results/*.jsonl
 *.egg-info/
 .ipynb_checkpoints/
+.env
+eval_out/
+*.db
+*.bundle
+celerybeat-schedule*
+.ruff_cache/
+uv.lock.bak

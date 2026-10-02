@@ -28,7 +28,7 @@ class PassageStore:
         self.p = passages
 
     @classmethod
-    def build(cls, mtrag_dir, collection, out_dir: Path) -> "PassageStore":
+    def build(cls, mtrag_dir, collection, out_dir: Path) -> PassageStore:
         out_dir.mkdir(parents=True, exist_ok=True)
         passages = {}
         with open(out_dir / "passages.jsonl", "w", encoding="utf-8") as f:
@@ -38,7 +38,7 @@ class PassageStore:
         return cls(passages)
 
     @classmethod
-    def load(cls, d: Path) -> "PassageStore":
+    def load(cls, d: Path) -> PassageStore:
         with open(d / "passages.jsonl", encoding="utf-8") as f:
             return cls({r["id"]: r for r in map(json.loads, f)})
 
@@ -54,7 +54,7 @@ class BM25Index:
         self.r, self.ids = retriever, ids
 
     @classmethod
-    def build(cls, store: PassageStore, out_dir: Path) -> "BM25Index":
+    def build(cls, store: PassageStore, out_dir: Path) -> BM25Index:
         import bm25s
 
         ids = store.ids()
@@ -66,7 +66,7 @@ class BM25Index:
         return cls(r, ids)
 
     @classmethod
-    def load(cls, d: Path) -> "BM25Index":
+    def load(cls, d: Path) -> BM25Index:
         import bm25s
 
         return cls(bm25s.BM25.load(str(d / "bm25")), json.load(open(d / "bm25_ids.json", encoding="utf-8")))
@@ -82,20 +82,18 @@ class BM25Index:
 
 class DenseIndex:
     def __init__(self, model_name: str, index, ids, device: str | None = None):
-        from sentence_transformers import SentenceTransformer
-
         import torch
+        from sentence_transformers import SentenceTransformer
 
         self.model, self.index, self.ids = SentenceTransformer(model_name, device=device), index, ids
         if torch.cuda.is_available() and str(self.model.device).startswith("cuda"):
             self.model.half()
 
     @classmethod
-    def build(cls, store: PassageStore, model_name: str, out_dir: Path, batch_size: int = 256) -> "DenseIndex":
+    def build(cls, store: PassageStore, model_name: str, out_dir: Path, batch_size: int = 256) -> DenseIndex:
         import faiss
-        from sentence_transformers import SentenceTransformer
-
         import torch
+        from sentence_transformers import SentenceTransformer
 
         ids = store.ids()
         model = SentenceTransformer(model_name)
@@ -110,7 +108,7 @@ class DenseIndex:
         return cls(model_name, index, ids)
 
     @classmethod
-    def load(cls, d: Path, model_name: str, device: str | None = None) -> "DenseIndex":
+    def load(cls, d: Path, model_name: str, device: str | None = None) -> DenseIndex:
         import faiss
 
         return cls(model_name, faiss.read_index(str(d / "dense.faiss")),

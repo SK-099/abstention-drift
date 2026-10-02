@@ -1,0 +1,165 @@
+name: ci
+
+on:
+  push: { branches: [main] }
+  pull_request:
+  workflow_dispatch:
+
+concurrency: { group: "ci-${{ github.ref }}", cancel-in-progress: true }
+
+env:
+  UV_PYTHON: "3.11"
+  IMAGE: ghcr.io/${{ github.repository_owner }}/abstain-api
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uvx ruff check .
+      - run: uvx ruff format --check service
+
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env: { POSTGRES_USER: app, POSTGRES_PASSWORD: app, POSTGRES_DB: app }
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U app" --health-interval 5s --health-retries 20
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+      qdrant:
+        image: qdrant/qdrant:v1.15.4
+        ports: ["6333:6333"]
+    env:
+      DATABASE_URL: postgresql+asyncpg://app:app@localhost:5432/app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with: { enable-cache: true, cache-dependency-glob: "**/pyproject.toml" }
+      - name: Install (uv workspace, CPU torch)
+        run: uv sync --all-packages --extra ml
+      - name: Research package tests
+        run: uv run pytest tests -q
+      - name: Migrations
+        run: uv run alembic -c service/alembic.ini upgrade head
+      - name: Service tests (SQLite + in-memory Qdrant)
+        run: cd service && uv run pytest -q
+      - name: Service tests (Postgres + Postgres checkpointer + Qdrant server)
+        env: { TEST_DATABASE_URL: "postgresql+asyncpg://app:app@localhost:5432/app", TEST_CHECKPOINTER: postgres,
+               TEST_QDRANT_URL: "http://localhost:6333" }
+        run: cd service && uv run pytest -q
+      - name: Service tests (pgvector instead of Qdrant)
+        env: { TEST_DATABASE_URL: "postgresql+asyncpg://app:app@localhost:5432/app", TEST_VECTOR_STORE: pgvector }
+        run: cd service && uv run pytest -q
+
+  quality-gate:
+    # Abstention quality gate on the fixed MTRAG-UN sample (150 turns). Always scores the committed
+    # predictions (catches metric/gate/label regressions); with the LIVE_EVAL variable and LLM + Qdrant
+    # secrets it re-runs the agent live and gates that run instead.
+    runs-on: ubuntu-latest
+    env:
+      LIVE: ${{ vars.LIVE_EVAL == 'true' && secrets.LLM_API_KEY != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with: { enable-cache: true, cache-dependency-glob: "**/pyproject.toml" }
+      - run: uv sync --all-packages --extra ml
+      - name: Gate on committed predictions
+        if: env.LIVE != 'true'
+        run: uv run python service/eval/quality_gate.py --summary "$GITHUB_STEP_SUMMARY" --json-out gate.json
+      - name: Fetch the MTRAG benchmark and the checker
+        if: env.LIVE == 'true'
+        env: { HF_TOKEN: "${{ secrets.HF_TOKEN }}", CHECKER_REPO: "${{ vars.CHECKER_REPO }}" }
+        run: |
+          git clone --depth 1 https://github.com/IBM/mt-rag-benchmark data/mt-rag-benchmark
+          uv run huggingface-cli download "$CHECKER_REPO" --local-dir checkpoints/checker/best
+      - name: Live agent run on the sample + gate
+        if: env.LIVE == 'true'
+        env:
+          LLM_BASE_URL: ${{ vars.LLM_BASE_URL }}
+          LLM_MODEL: ${{ vars.LLM_MODEL }}
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          QDRANT_URL: ${{ secrets.QDRANT_URL }}
+          QDRANT_API_KEY: ${{ secrets.QDRANT_API_KEY }}
+          MTRAG_DIR: data/mt-rag-benchmark
+          CHECKPOINTER: memory
+          DEVICE: cpu
+        run: |
+          uv run python service/eval/run_sample.py --out eval_out/live.jsonl
+          uv run python service/eval/quality_gate.py --predictions eval_out/live.jsonl \
+            --summary "$GITHUB_STEP_SUMMARY" --json-out gate.json
+      - name: Faithfulness (Ragas) on the live run
+        if: env.LIVE == 'true' && vars.JUDGE_MODEL != ''
+        continue-on-error: true
+        env: { JUDGE_API_KEY: "${{ secrets.JUDGE_API_KEY }}", JUDGE_MODEL: "${{ vars.JUDGE_MODEL }}",
+               JUDGE_BASE_URL: "${{ vars.JUDGE_BASE_URL }}" }
+        run: |
+          uv pip install ragas
+          uv run python service/eval/faithfulness.py --predictions eval_out/live.jsonl --limit 50
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: quality-gate, path: "gate.json\neval_out/", if-no-files-found: ignore }
+
+  image:
+    needs: [lint, test, quality-gate]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions: { contents: read, packages: write }
+    outputs: { tag: "${{ steps.meta.outputs.version }}" }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with: { registry: ghcr.io, username: "${{ github.actor }}", password: "${{ secrets.GITHUB_TOKEN }}" }
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=sha,format=short,prefix=
+            type=raw,value=latest
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: service/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    needs: image
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      TAG: ${{ needs.image.outputs.tag }}
+      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
+      KUBECONFIG_B64: ${{ secrets.KUBECONFIG_B64 }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fly.io
+        if: env.FLY_API_TOKEN != ''
+        run: |
+          curl -L https://fly.io/install.sh | sh
+          ~/.fly/bin/flyctl deploy --config deploy/fly/fly.toml --image "$IMAGE:$TAG" --remote-only
+          ~/.fly/bin/flyctl deploy --config deploy/fly/fly.worker.toml --image "$IMAGE:$TAG" --remote-only
+      - name: Render
+        if: env.RENDER_DEPLOY_HOOK != ''
+        run: curl -fsS -X POST "$RENDER_DEPLOY_HOOK&imgURL=$IMAGE:$TAG"
+      - name: Kubernetes
+        if: env.KUBECONFIG_B64 != ''
+        run: |
+          echo "$KUBECONFIG_B64" | base64 -d > kubeconfig && export KUBECONFIG=$PWD/kubeconfig
+          cd deploy/k8s && kustomize edit set image "abstain-api=$IMAGE:$TAG" && cd -
+          kubectl apply -k deploy/k8s
+          kubectl -n abstain delete job migrate --ignore-not-found && kubectl apply -k deploy/k8s
+          kubectl -n abstain rollout status deploy/api --timeout=10m
+      - name: Nothing configured
+        if: env.FLY_API_TOKEN == '' && env.RENDER_DEPLOY_HOOK == '' && env.KUBECONFIG_B64 == ''
+        run: echo "No deployment target secrets set (FLY_API_TOKEN / RENDER_DEPLOY_HOOK / KUBECONFIG_B64); image pushed only."

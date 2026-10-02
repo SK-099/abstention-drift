@@ -1,0 +1,14 @@
+apiVersion: batch/v1
+kind: Job
+metadata: { name: migrate }
+spec:
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 3600
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: migrate
+          image: abstain-api
+          command: ["alembic", "-c", "service/alembic.ini", "upgrade", "head"]
+          envFrom: [{ configMapRef: { name: abstain-config } }, { secretRef: { name: abstain-secrets } }]

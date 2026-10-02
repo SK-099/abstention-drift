@@ -4,12 +4,84 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "abstain"
-version = "0.1.0"
-description = "Abstention drift in multi-turn retrieval-augmented conversations"
+version = "0.2.0"
+description = "Abstention drift in multi-turn retrieval-augmented conversations (research code + S5 agent)"
 requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.26",
+    "pandas>=2.0",
+    "pyyaml>=6.0",
+    "scikit-learn>=1.3",
+    "scipy>=1.11",
+    "tqdm",
+]
+
+[project.optional-dependencies]
+# BM25 + dense retrieval, re-ranking, the checker (research pipeline)
+ml = [
+    "bm25s>=0.2",
+    "torch>=2.2",
+    "transformers>=4.56",
+    "accelerate>=0.33",
+    "sentence-transformers>=3.0",
+    "faiss-cpu>=1.8",
+    "datasets>=2.20",
+    "sentencepiece",
+    "protobuf",
+]
+# the S5 LangGraph agent (used by the service)
+agent = [
+    "langgraph>=1.0,<2",
+    "langchain-core>=1.0,<2",
+    "transformers>=4.56",
+    "torch>=2.2",
+    "sentence-transformers>=3.0",
+]
+ollama = ["langchain-ollama>=1.0,<2"]
+gpu = ["bitsandbytes>=0.43"]
+demo = ["gradio>=4.40,<6"]
+plots = ["matplotlib"]
+
+[dependency-groups]
+dev = ["pytest>=8", "ruff>=0.6", "pytest-cov"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+# ---------------------------------------------------------------- uv workspace: research package + service
+[tool.uv.workspace]
+members = ["service"]
+
+[tool.uv]
+default-groups = ["dev"]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = [{ index = "pytorch-cpu", marker = "sys_platform == 'linux'" }]
+
+# ---------------------------------------------------------------- Ruff (lint + format)
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+extend-exclude = ["notebooks", "data", "indexes", "outputs", "checkpoints", "service/migrations/versions"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "RUF100"]
+ignore = ["E501", "E702", "E731", "B008", "B905", "UP007", "E741"]
+
+[tool.ruff.lint.per-file-ignores]
+"scripts/*" = ["E402", "B", "I001"]
+"service/eval/*" = ["E402"]
+"service/scripts/*" = ["E402"]
+"tests/*" = ["E402"]
+"service/tests/*" = ["E402"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["abstain", "abstain_api"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]

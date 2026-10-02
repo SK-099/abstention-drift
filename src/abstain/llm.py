@@ -47,7 +47,7 @@ class OllamaLLM:
         self.s = requests.Session()
         try:
             tags = self.s.get(f"{self.url}/api/tags", timeout=10).json().get("models", [])
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             raise RuntimeError(f"Ollama is not reachable at {self.url}. Install it from https://ollama.com, "
                                f"start it, and run: ollama pull {model}") from e
         names = {m.get("name") for m in tags} | {m.get("model") for m in tags}

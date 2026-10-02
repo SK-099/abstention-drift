@@ -65,8 +65,13 @@ def train_checker(train: list[dict], dev: list[dict], cfg: dict, gold: dict[str,
     `gold` maps task_id -> gold passage ids (needed for mode=passage)."""
     import torch
     from datasets import Dataset
-    from transformers import (AutoModelForSequenceClassification, AutoTokenizer, DataCollatorWithPadding,
-                              Trainer, TrainingArguments)
+    from transformers import (
+        AutoModelForSequenceClassification,
+        AutoTokenizer,
+        DataCollatorWithPadding,
+        Trainer,
+        TrainingArguments,
+    )
 
     c = cfg["checker"]
     mode = c.get("mode", "passage")

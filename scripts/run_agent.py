@@ -59,7 +59,7 @@ else:
     tasks = bench["mtragun"]
     raw_path = d / "mtragun-human/generation_tasks/reference.jsonl"
 raw = {r["task_id"]: r for r in map(json.loads, open(raw_path, encoding="utf-8"))}
-keep = lambda t: not a.collections or t.collection in a.collections  # noqa: E731
+keep = lambda t: not a.collections or t.collection in a.collections
 main = [t for t in tasks if t.abstain_label is not None and keep(t)][: a.limit]
 under = [t for t in tasks if t.answerability == "UNDERSPECIFIED" and keep(t)][: a.limit] if a.underspecified else []
 
@@ -73,7 +73,7 @@ if a.gate == "checker":
 elif a.gate == "reranker":
     from abstain.checker import RerankerScoreChecker
     rr = RerankerScoreChecker(str(Path(c["output_dir"]).parent / "reranker_checker.json"))
-    gate = lambda q, ps: rr.p_unanswerable([p.get("score", 0.0) for p in ps])  # noqa: E731
+    gate = lambda q, ps: rr.p_unanswerable([p.get("score", 0.0) for p in ps])
     gate.threshold = rr.threshold
 if a.self_check_min_p == "auto":
     f = Path(c["output_dir"]).parent / "self_check.json"

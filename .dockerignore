@@ -1,0 +1,15 @@
+.git
+**/__pycache__
+**/*.pyc
+.venv
+data
+indexes
+outputs
+checkpoints
+results
+notebooks
+docs
+*.bundle
+.env
+service/tests
+eval_out

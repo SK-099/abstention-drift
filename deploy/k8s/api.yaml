@@ -1,0 +1,54 @@
+# The checker checkpoint (checkpoints/checker/best + self_check.json) lives on a PVC filled once with
+#   kubectl cp checkpoints abstain/<api-pod>:/models   (or an init container downloading it from object storage / HF Hub)
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: { name: models }
+spec:
+  accessModes: [ReadWriteOnce]       # use ReadOnlyMany / a CSI object-store driver when api replicas span nodes
+  resources: { requests: { storage: 5Gi } }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: api, labels: { app: api } }
+spec:
+  replicas: 2
+  selector: { matchLabels: { app: api } }
+  template:
+    metadata:
+      labels: { app: api }
+      annotations: { prometheus.io/scrape: "true", prometheus.io/port: "8000", prometheus.io/path: /metrics }
+    spec:
+      containers:
+        - name: api
+          image: abstain-api
+          ports: [{ containerPort: 8000, name: http }]
+          envFrom: [{ configMapRef: { name: abstain-config } }, { secretRef: { name: abstain-secrets } }]
+          resources:
+            requests: { cpu: "1", memory: 3Gi }
+            limits: { cpu: "2", memory: 4Gi }
+          readinessProbe: { httpGet: { path: /readyz, port: http }, initialDelaySeconds: 20, periodSeconds: 15, timeoutSeconds: 10 }
+          livenessProbe: { httpGet: { path: /healthz, port: http }, initialDelaySeconds: 60, periodSeconds: 20 }
+          volumeMounts:
+            - { name: models, mountPath: /models, readOnly: true }
+            - { name: data, mountPath: /data }
+            - { name: uploads, mountPath: /data/uploads }     # shared with the worker (worker.yaml)
+      volumes:
+        - { name: models, persistentVolumeClaim: { claimName: models } }
+        - { name: data, emptyDir: {} }
+        - { name: uploads, persistentVolumeClaim: { claimName: uploads } }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: api }
+spec:
+  selector: { app: api }
+  ports: [{ port: 80, targetPort: http, name: http }]
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata: { name: api }
+spec:
+  scaleTargetRef: { apiVersion: apps/v1, kind: Deployment, name: api }
+  minReplicas: 2
+  maxReplicas: 8
+  metrics: [{ type: Resource, resource: { name: cpu, target: { type: Utilization, averageUtilization: 70 } } }]

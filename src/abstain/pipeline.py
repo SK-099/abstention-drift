@@ -19,8 +19,8 @@ def prompt_limits(llm_cfg: dict) -> tuple[dict, dict]:
     """(rewriter kwargs, generator kwargs) from the `llm:` config block."""
     h = {"history_turns": llm_cfg.get("history_turns", 6), "history_chars": llm_cfg.get("history_chars")}
     return h, dict(h, passage_chars=llm_cfg.get("passage_chars"))
-from .generate import generate_answer
-from .idk import IDK_RESPONSE, is_idk
+from .generate import generate_answer  # noqa: E402
+from .idk import IDK_RESPONSE, is_idk  # noqa: E402
 
 
 @dataclass

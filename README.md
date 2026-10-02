@@ -96,6 +96,20 @@ python app/app.py                                            # demo
 
 Model sizes can be overridden without editing files, for example: `python scripts/run_pipeline.py --system S2 --split dev --set llm.model=Qwen/Qwen2.5-1.5B-Instruct`.
 
+## Production service (FastAPI + LangGraph + Qdrant + LLMOps)
+
+`service/` wraps the S5 agent in a multi-user API: SSE streaming chat, PostgreSQL conversation memory and
+LangGraph checkpoints, Qdrant hybrid search (or pgvector), document upload and indexing with Celery,
+Clerk/Auth.js JWT auth, rate limits and prompt-injection screening, Langfuse tracing, OpenTelemetry →
+Prometheus/Grafana, Sentry, and a CI quality gate on a fixed MTRAG-UN sample. One command starts it:
+
+```bash
+cp .env.example .env && docker compose up -d --build     # Ollama stays native on the host
+```
+
+See [docs/service.md](docs/service.md) for the API, deployment options (Fly.io/Render, Kubernetes + vLLM,
+Modal/RunPod) and the release process.
+
 ## Repository layout
 
 ```

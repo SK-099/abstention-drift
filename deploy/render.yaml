@@ -1,0 +1,61 @@
+# Render Blueprint (copy to the repo root as render.yaml, or point Render at this file).
+# API + worker + beat from the GHCR image, managed Postgres and Key Value (Redis); Qdrant Cloud and a hosted
+# LLM (Groq / Together / OpenRouter, or Modal / RunPod vLLM) via environment groups.
+envVarGroups:
+  - name: abstain-shared
+    envVars:
+      - { key: ENV, value: production }
+      - { key: VECTOR_STORE, value: qdrant }
+      - { key: QDRANT_URL, sync: false }
+      - { key: QDRANT_API_KEY, sync: false }
+      - { key: LLM_BASE_URL, value: "https://api.groq.com/openai/v1" }
+      - { key: LLM_MODEL, sync: false }
+      - { key: LLM_API_KEY, sync: false }
+      - { key: AUTH_MODE, value: jwks }
+      - { key: AUTH_JWKS_URL, sync: false }
+      - { key: AUTH_ISSUER, sync: false }
+      - { key: LANGFUSE_PUBLIC_KEY, sync: false }
+      - { key: LANGFUSE_SECRET_KEY, sync: false }
+      - { key: LANGFUSE_HOST, value: "https://cloud.langfuse.com" }
+      - { key: SENTRY_DSN, sync: false }
+      - { key: TEI_CHECKER_URL, sync: false }
+services:
+  - type: web
+    name: abstain-api
+    runtime: image
+    image: { url: ghcr.io/OWNER/abstain-api:latest }
+    plan: standard
+    healthCheckPath: /healthz
+    preDeployCommand: alembic -c service/alembic.ini upgrade head
+    envVars:
+      - fromGroup: abstain-shared
+      - { key: DATABASE_URL, fromDatabase: { name: abstain-db, property: connectionString } }
+      - { key: REDIS_URL, fromService: { type: keyvalue, name: abstain-redis, property: connectionString } }
+  - type: worker
+    name: abstain-worker
+    runtime: image
+    image: { url: ghcr.io/OWNER/abstain-api:latest }
+    plan: standard
+    dockerCommand: celery -A abstain_api.worker worker --loglevel=INFO --pool=threads --concurrency=2
+    envVars:
+      - fromGroup: abstain-shared
+      - { key: DATABASE_URL, fromDatabase: { name: abstain-db, property: connectionString } }
+      - { key: REDIS_URL, fromService: { type: keyvalue, name: abstain-redis, property: connectionString } }
+  - type: worker
+    name: abstain-beat
+    runtime: image
+    image: { url: ghcr.io/OWNER/abstain-api:latest }
+    plan: starter
+    dockerCommand: celery -A abstain_api.worker beat --loglevel=INFO --schedule=/tmp/celerybeat-schedule
+    envVars:
+      - fromGroup: abstain-shared
+      - { key: DATABASE_URL, fromDatabase: { name: abstain-db, property: connectionString } }
+      - { key: REDIS_URL, fromService: { type: keyvalue, name: abstain-redis, property: connectionString } }
+  - type: keyvalue
+    name: abstain-redis
+    plan: starter
+    ipAllowList: []
+databases:
+  - name: abstain-db
+    plan: basic-1gb
+    postgresMajorVersion: "16"

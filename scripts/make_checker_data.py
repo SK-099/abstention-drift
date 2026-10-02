@@ -8,14 +8,13 @@ Writes outputs/checker_{train,dev}.jsonl
 """
 import argparse
 import json
+from functools import partial
 from pathlib import Path
 
 from abstain.config import load_config
 from abstain.data import conversation_split, load_benchmark, load_rewrites
 from abstain.retrieval import load_retriever
 from abstain.rewrite import QueryRewriter
-from functools import partial
-
 from abstain.synth import checker_examples, llm_still_answerable
 
 ap = argparse.ArgumentParser()
@@ -37,7 +36,7 @@ llm = None
 if a.rewrite == "llm" or a.verify_llm:
     from abstain.llm import make_llm
     llm = make_llm(cfg["llm"])
-from abstain.pipeline import prompt_limits  # noqa: E402
+from abstain.pipeline import prompt_limits
 
 rewriter = QueryRewriter(a.rewrite, llm=llm, oracle=load_rewrites(cfg["data"]["mtrag_dir"]), **prompt_limits(cfg["llm"])[0])
 rets = {c: load_retriever(c, cfg, use_dense=not a.no_dense, use_rerank=not a.no_rerank)

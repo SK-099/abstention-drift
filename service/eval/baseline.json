@@ -1,0 +1,16 @@
+{
+ "system": "S5-selective",
+ "predictions": "S5-selective_mtragun.jsonl",
+ "metrics": {
+  "n": 150,
+  "n_unanswerable": 34,
+  "n_answerable": 116,
+  "abstain_precision": 0.5,
+  "abstain_recall": 0.5882,
+  "abstain_f1": 0.5405,
+  "false_abstention_rate": 0.1724,
+  "accuracy": 0.7733,
+  "late_abstain_recall": 0.625,
+  "clarify_rate": 0.1867
+ }
+}

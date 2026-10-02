@@ -1,0 +1,24 @@
+# Fly.io: Celery worker + beat (same image).   fly launch --no-deploy --copy-config -c deploy/fly/fly.worker.toml
+app = "abstain-worker"
+primary_region = "fra"
+
+[build]
+  dockerfile = "../../service/Dockerfile"
+
+[env]
+  ENV = "production"
+  DEVICE = "cpu"
+
+[processes]
+  worker = "celery -A abstain_api.worker worker --loglevel=INFO --pool=threads --concurrency=2"
+  beat = "celery -A abstain_api.worker beat --loglevel=INFO --schedule=/tmp/celerybeat-schedule"
+
+[[vm]]
+  size = "shared-cpu-2x"
+  memory = "4gb"
+  processes = ["worker"]
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"
+  processes = ["beat"]

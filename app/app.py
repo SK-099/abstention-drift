@@ -13,14 +13,14 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-import gradio as gr  # noqa: E402
+import gradio as gr
 
-from abstain.config import load_config  # noqa: E402
-from abstain.data import Task  # noqa: E402
-from abstain.llm import make_llm  # noqa: E402
-from abstain.pipeline import AbstainRAG, prompt_limits  # noqa: E402
-from abstain.retrieval import load_retriever  # noqa: E402
-from abstain.rewrite import QueryRewriter  # noqa: E402
+from abstain.config import load_config
+from abstain.data import Task
+from abstain.llm import make_llm
+from abstain.pipeline import AbstainRAG, prompt_limits
+from abstain.retrieval import load_retriever
+from abstain.rewrite import QueryRewriter
 
 cfg = load_config(os.environ.get("CONFIG", "configs/default.yaml"))
 COLLECTIONS = [c for c in ("fiqa", "govt", "cloud", "clapnq") if (Path(cfg["data"]["index_dir"]) / c).exists()]

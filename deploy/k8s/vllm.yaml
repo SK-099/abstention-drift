@@ -1,0 +1,35 @@
+# vLLM OpenAI-compatible server on a GPU node pool (EKS g5/g6, GKE L4, AKS NC A10/T4).
+# Requires the NVIDIA device plugin / GPU operator; the toleration matches the usual GPU-pool taint.
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: vllm, labels: { app: vllm } }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: vllm } }
+  template:
+    metadata:
+      labels: { app: vllm }
+      annotations: { prometheus.io/scrape: "true", prometheus.io/port: "8000" }
+    spec:
+      nodeSelector: { nvidia.com/gpu.present: "true" }
+      tolerations: [{ key: nvidia.com/gpu, operator: Exists, effect: NoSchedule }]
+      containers:
+        - name: vllm
+          image: vllm/vllm-openai:latest
+          args: ["--model", "Qwen/Qwen2.5-7B-Instruct", "--served-model-name", "qwen2.5:3b",
+                 "--max-model-len", "8192", "--gpu-memory-utilization", "0.90", "--enable-prefix-caching"]
+          env: [{ name: HF_TOKEN, valueFrom: { secretKeyRef: { name: abstain-secrets, key: HF_TOKEN } } }]
+          ports: [{ containerPort: 8000, name: http }]
+          resources: { limits: { nvidia.com/gpu: 1 }, requests: { cpu: "4", memory: 24Gi } }
+          readinessProbe: { httpGet: { path: /health, port: http }, initialDelaySeconds: 60, periodSeconds: 10 }
+          volumeMounts: [{ name: cache, mountPath: /root/.cache/huggingface }, { name: shm, mountPath: /dev/shm }]
+      volumes:
+        - { name: cache, emptyDir: {} }
+        - { name: shm, emptyDir: { medium: Memory, sizeLimit: 8Gi } }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: vllm }
+spec:
+  selector: { app: vllm }
+  ports: [{ port: 8000, targetPort: http, name: http }]

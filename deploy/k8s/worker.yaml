@@ -1,0 +1,45 @@
+# Uploaded files are shared between the API (writes) and the worker (reads): use an RWX volume
+# (EFS / Filestore / Azure Files) for /data/uploads.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: { name: uploads }
+spec:
+  accessModes: [ReadWriteMany]
+  resources: { requests: { storage: 20Gi } }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: worker, labels: { app: worker } }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: worker } }
+  template:
+    metadata:
+      labels: { app: worker }
+      annotations: { prometheus.io/scrape: "true", prometheus.io/port: "9101" }
+    spec:
+      containers:
+        - name: worker
+          image: abstain-api
+          command: ["celery", "-A", "abstain_api.worker", "worker", "--loglevel=INFO", "--pool=threads", "--concurrency=2"]
+          envFrom: [{ configMapRef: { name: abstain-config } }, { secretRef: { name: abstain-secrets } }]
+          resources: { requests: { cpu: "1", memory: 3Gi }, limits: { memory: 4Gi } }
+          volumeMounts: [{ name: uploads, mountPath: /data/uploads }]
+      volumes: [{ name: uploads, persistentVolumeClaim: { claimName: uploads } }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: beat, labels: { app: beat } }
+spec:
+  replicas: 1                      # exactly one scheduler
+  strategy: { type: Recreate }
+  selector: { matchLabels: { app: beat } }
+  template:
+    metadata: { labels: { app: beat } }
+    spec:
+      containers:
+        - name: beat
+          image: abstain-api
+          command: ["celery", "-A", "abstain_api.worker", "beat", "--loglevel=INFO", "--schedule=/tmp/celerybeat-schedule"]
+          envFrom: [{ configMapRef: { name: abstain-config } }, { secretRef: { name: abstain-secrets } }]
+          resources: { requests: { cpu: 50m, memory: 256Mi } }

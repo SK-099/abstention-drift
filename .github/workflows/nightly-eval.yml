@@ -1,0 +1,37 @@
+name: nightly-eval
+# Live abstention evaluation of the deployed configuration on the fixed MTRAG-UN sample, every night.
+# (The Celery beat job does the same inside the running stack and stores the result in eval_runs,
+#  which GET /metrics/abstention shows as last_eval.)
+on:
+  schedule: [{ cron: "30 2 * * *" }]
+  workflow_dispatch:
+
+jobs:
+  eval:
+    if: vars.LIVE_EVAL == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --all-packages --extra ml
+      - env: { HF_TOKEN: "${{ secrets.HF_TOKEN }}", CHECKER_REPO: "${{ vars.CHECKER_REPO }}" }
+        run: |
+          git clone --depth 1 https://github.com/IBM/mt-rag-benchmark data/mt-rag-benchmark
+          uv run huggingface-cli download "$CHECKER_REPO" --local-dir checkpoints/checker/best
+      - env:
+          LLM_BASE_URL: ${{ vars.LLM_BASE_URL }}
+          LLM_MODEL: ${{ vars.LLM_MODEL }}
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          QDRANT_URL: ${{ secrets.QDRANT_URL }}
+          QDRANT_API_KEY: ${{ secrets.QDRANT_API_KEY }}
+          MTRAG_DIR: data/mt-rag-benchmark
+          CHECKPOINTER: memory
+          DEVICE: cpu
+        run: |
+          uv run python service/eval/run_sample.py --out eval_out/nightly.jsonl
+          uv run python service/eval/quality_gate.py --predictions eval_out/nightly.jsonl \
+            --summary "$GITHUB_STEP_SUMMARY" --json-out eval_out/gate.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: nightly-eval, path: eval_out/ }

@@ -4,9 +4,9 @@ import pytest
 pytest.importorskip("langgraph")
 pytest.importorskip("langchain_core")
 
-from abstain.agent import AbstentionAgent, make_retriever  # noqa: E402
-from abstain.data import Task  # noqa: E402
-from abstain.idk import IDK_RESPONSE  # noqa: E402
+from abstain.agent import AbstentionAgent, make_retriever
+from abstain.data import Task
+from abstain.idk import IDK_RESPONSE
 
 
 class FakeLLM:
