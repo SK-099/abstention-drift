@@ -35,12 +35,13 @@ ap.add_argument("--collections", nargs="+", default=["clapnq", "cloud", "fiqa", 
 ap.add_argument("--batch", type=int, default=512)
 ap.add_argument("--limit", type=int, help="first N passages per collection (testing)")
 ap.add_argument("--snapshot", action="store_true", help="create a snapshot of the Qdrant collection afterwards")
+ap.add_argument("--snapshot-only", action="store_true", help="only create the snapshot (data already loaded)")
 a = ap.parse_args()
 
 s = get_settings()
 store = get_store(s)  # Qdrant, or pgvector with VECTOR_STORE=pgvector
 emb = None
-for col in a.collections:
+for col in [] if a.snapshot_only else a.collections:
     d = Path(a.index_dir) / col
     passages = [json.loads(l) for l in open(d / "passages.jsonl", encoding="utf-8")][: a.limit]
     vec_of = None
@@ -67,7 +68,12 @@ for col in a.collections:
             print(f"  {n}/{len(passages)} ({rate:.0f}/s)", flush=True)
     print(f"{col}: {store.count(col)} points in Qdrant ({time.time() - t0:.0f}s)")
 
-if a.snapshot and s.vector_store == "qdrant":
-    snap = store.client.create_snapshot(store.name, wait=True)
+if (a.snapshot or a.snapshot_only) and s.vector_store == "qdrant":
+    from qdrant_client import QdrantClient
+
+    # a snapshot of the full corpus (~366K points) takes several minutes: use a long timeout
+    slow = QdrantClient(url=s.qdrant_url, api_key=s.qdrant_api_key, timeout=1800)
+    print("creating snapshot (several minutes for the full corpus)...", flush=True)
+    snap = slow.create_snapshot(store.name, wait=True)
     print(f"snapshot: {snap.name} (download: GET {s.qdrant_url}/collections/{store.name}/snapshots/{snap.name})")
 _ = np  # numpy is required by faiss
