@@ -1,17 +1,19 @@
 from __future__ import annotations
 
+import asyncio
 import re
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
-from sqlalchemy import or_, select
+from fastapi.responses import FileResponse
+from sqlalchemy import delete, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..auth import current_user
 from ..db import get_session
 from ..guardrails import limiter, validate_upload
-from ..models import Collection, Document, User
-from ..schemas import CollectionIn, CollectionOut, DocumentOut
+from ..models import Collection, Conversation, Document, User
+from ..schemas import CollectionIn, CollectionOut, CollectionUpdate, DocumentOut, PassageOut
 from ..settings import get_settings
 from ._access import readable_collection, writable_collection
 
@@ -104,3 +106,100 @@ async def list_documents(
     await readable_collection(session, collection_id, user)
     q = select(Document).where(Document.collection_id == collection_id).order_by(Document.created_at)
     return (await session.execute(q)).scalars().all()
+
+
+async def _document(session: AsyncSession, collection_id: str, document_id: str) -> Document:
+    d = await session.get(Document, document_id)
+    if d is None or d.collection_id != collection_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "document not found")
+    return d
+
+
+@router.get(
+    "/{collection_id}/documents/{document_id}/passages",
+    response_model=list[PassageOut],
+    summary="The indexed passages of one document, in reading order (source viewer)",
+)
+async def document_passages(
+    collection_id: str,
+    document_id: str,
+    user: User = Depends(current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    await readable_collection(session, collection_id, user)
+    await _document(session, collection_id, document_id)
+    from ..retrieval import get_store
+
+    return await asyncio.to_thread(get_store(get_settings()).document_passages, document_id)
+
+
+@router.get("/{collection_id}/documents/{document_id}/file", summary="Download / view the original file")
+async def document_file(
+    collection_id: str,
+    document_id: str,
+    user: User = Depends(current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    await readable_collection(session, collection_id, user)
+    d = await _document(session, collection_id, document_id)
+    if not d.path or not Path(d.path).exists():
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "file no longer stored")
+    return FileResponse(
+        d.path,
+        media_type=d.content_type or "application/octet-stream",
+        filename=d.filename,
+        content_disposition_type="inline",
+    )
+
+
+@router.delete("/{collection_id}/documents/{document_id}", status_code=204, summary="Remove a source")
+async def delete_document(
+    collection_id: str,
+    document_id: str,
+    user: User = Depends(current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    await writable_collection(session, collection_id, user)
+    d = await _document(session, collection_id, document_id)
+    from ..retrieval import get_store
+
+    await asyncio.to_thread(get_store(get_settings()).delete_document, d.id)
+    if d.path:
+        Path(d.path).unlink(missing_ok=True)
+    await session.delete(d)
+    await session.commit()
+
+
+@router.patch("/{collection_id}", response_model=CollectionOut, summary="Rename a notebook")
+async def update_collection(
+    collection_id: str,
+    body: CollectionUpdate,
+    user: User = Depends(current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    c = await writable_collection(session, collection_id, user)
+    for k, v in body.model_dump(exclude_none=True).items():
+        setattr(c, k, v)
+    await session.commit()
+    await session.refresh(c)
+    return c
+
+
+@router.delete("/{collection_id}", status_code=204, summary="Delete a notebook with its sources, chats and notes")
+async def delete_collection(
+    collection_id: str, user: User = Depends(current_user), session: AsyncSession = Depends(get_session)
+):
+    c = await writable_collection(session, collection_id, user)
+    if c.is_public:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "built-in collections cannot be deleted")
+    from ..retrieval import get_store
+
+    store = get_store(get_settings())
+    docs = (await session.execute(select(Document).where(Document.collection_id == collection_id))).scalars().all()
+    for d in docs:
+        await asyncio.to_thread(store.delete_document, d.id)
+        if d.path:
+            Path(d.path).unlink(missing_ok=True)
+    await session.execute(delete(Conversation).where(Conversation.collection_id == collection_id))
+    await session.delete(c)
+    await session.commit()

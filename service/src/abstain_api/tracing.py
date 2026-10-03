@@ -36,7 +36,8 @@ def trace_metadata(user_id: str, conversation_id: str, versions: dict, collectio
     return {
         "langfuse_session_id": conversation_id,
         "langfuse_user_id": user_id,
-        "langfuse_tags": [f"collection:{collection}", f"prompt:{versions['prompt_version']}"],
+        "langfuse_tags": [f"collection:{collection}", f"prompt:{versions['prompt_version']}"]
+        + ([f"model:{versions['llm_model']}"] if versions.get("llm_model") else []),
         "collection": collection,
         **versions,
     }
@@ -71,6 +72,8 @@ class TurnTrace:
         self.question, self.collection, self.turn = question, collection, turn
         self.user_id, self.session_id, self.versions = user_id, session_id, versions
         self.tags = [f"collection:{collection}", f"prompt:{versions['prompt_version']}"]
+        if versions.get("llm_model"):
+            self.tags.append(f"model:{versions['llm_model']}")
         self._stack = None
         self._root = None
 

@@ -49,6 +49,9 @@ def index_document(
                 "title": doc.filename if c["title"] == stem else c["title"],
                 "text": c["text"],
                 "source_document": doc.id,
+                "page": c.get("page"),
+                "section": c.get("section") or None,
+                "seq": i,
             }
             for i, c in enumerate(kept)
         ]

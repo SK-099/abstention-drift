@@ -16,6 +16,12 @@ class ChatRequest(BaseModel):
     message: str = Field(min_length=1)
     conversation_id: str | None = None
     collection: str = Field(default="cloud", pattern=SLUG)
+    model: str | None = Field(
+        default=None, max_length=200, description="model id from GET /models; default model if empty"
+    )
+    document_ids: list[str] | None = Field(
+        default=None, max_length=500, description="search only these documents of the notebook (ticked sources)"
+    )
 
     @field_validator("message")
     @classmethod
@@ -34,6 +40,9 @@ class Citation(BaseModel):
     title: str = ""
     snippet: str
     score: float | None = None
+    source_document: str | None = None
+    page: int | None = None
+    section: str | None = None
 
 
 class MessageOut(BaseModel):
@@ -86,6 +95,11 @@ class CollectionIn(BaseModel):
     is_public: bool = False
 
 
+class CollectionUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=200)
+    description: str | None = Field(default=None, max_length=2000)
+
+
 class CollectionOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: str
@@ -106,3 +120,58 @@ class DocumentOut(BaseModel):
     n_flagged: int
     error: str | None
     created_at: datetime
+
+
+class PassageOut(BaseModel):
+    passage_id: str
+    text: str
+    page: int | None = None
+    section: str | None = None
+
+
+class NoteIn(BaseModel):
+    title: str = Field(default="Untitled note", min_length=1, max_length=300)
+    content: str = Field(default="", max_length=50_000)
+    kind: Literal["note", "answer"] = "note"
+    source_message_id: str | None = None
+    citations: list[dict] = Field(default_factory=list, max_length=50)
+    pinned: bool = False
+
+
+class NoteUpdate(BaseModel):
+    title: str | None = Field(default=None, min_length=1, max_length=300)
+    content: str | None = Field(default=None, max_length=50_000)
+    pinned: bool | None = None
+
+
+class NoteOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    collection_id: str
+    title: str
+    content: str
+    kind: str
+    source_message_id: str | None
+    citations: list[dict]
+    pinned: bool
+    created_at: datetime
+    updated_at: datetime
+
+
+class ModelOut(BaseModel):
+    id: str
+    provider: str
+    provider_label: str
+    model: str
+    name: str
+    context_length: int | None = None
+    reasoning: bool = False
+    featured: bool = False
+    calibrated: bool = False
+    description: str = ""
+
+
+class ModelsOut(BaseModel):
+    default: str
+    models: list[ModelOut]
+    providers: list[dict]

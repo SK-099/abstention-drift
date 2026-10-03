@@ -8,6 +8,7 @@ state is persisted and inspectable/resumable.
 from __future__ import annotations
 
 import asyncio
+import contextvars
 import logging
 import threading
 import time
@@ -65,11 +66,11 @@ def make_checkpointer(s: Settings):
 
 def default_components(s: Settings) -> Components:
     from .checker import make_gate
-    from .llm import OpenAICompatChat
+    from .llm import RoutingChat
     from .retrieval import HybridQdrantRetriever, Reranker, get_embedder, get_store
 
     return Components(
-        OpenAICompatChat(s),
+        RoutingChat(s),
         HybridQdrantRetriever(s, get_store(s), get_embedder(s), Reranker(s)),
         make_gate(s),
         make_checkpointer(s),
@@ -102,8 +103,15 @@ class AgentRuntime:
         )
 
     # ------------------------------------------------------------------ sync API
-    def stream(self, task: Task, thread_id: str, callbacks=None, metadata=None, trace=None) -> Iterator[dict]:
-        """`trace`: optional tracing.TurnTrace, entered here because it must live in the graph's thread."""
+    def stream(
+        self, task: Task, thread_id: str, callbacks=None, metadata=None, trace=None, model=None, documents=None
+    ) -> Iterator[dict]:
+        """`trace`: optional tracing.TurnTrace, entered here because it must live in the graph's thread.
+        `model`: model id from the picker (None = default); `documents`: restrict search to these documents."""
+        from .model_registry import REQUEST_DOCS, REQUEST_MODEL
+
+        REQUEST_MODEL.set(model)
+        REQUEST_DOCS.set(tuple(documents) if documents else None)
         if trace is None:
             yield from self._stream(task, thread_id, callbacks, metadata)
             return
@@ -147,6 +155,9 @@ class AgentRuntime:
                     "title": p.get("title", ""),
                     "snippet": p["text"][:400],
                     "score": round(float(p.get("score", 0.0)), 4),
+                    "source_document": p.get("source_document"),
+                    "page": p.get("page"),
+                    "section": p.get("section"),
                 }
                 for i, p in enumerate(out.passages)
             ]
@@ -182,7 +193,7 @@ class AgentRuntime:
 
     # ------------------------------------------------------------------ async bridge for SSE
     async def astream(
-        self, task: Task, thread_id: str, callbacks=None, metadata=None, trace=None
+        self, task: Task, thread_id: str, callbacks=None, metadata=None, trace=None, model=None, documents=None
     ) -> AsyncIterator[dict]:
         """Run the (sync) graph in a worker thread and yield its events on the event loop."""
         loop = asyncio.get_running_loop()
@@ -191,7 +202,7 @@ class AgentRuntime:
 
         def work():
             try:
-                for ev in self.stream(task, thread_id, callbacks, metadata, trace):
+                for ev in self.stream(task, thread_id, callbacks, metadata, trace, model, documents):
                     loop.call_soon_threadsafe(q.put_nowait, ev)
             except Exception as e:
                 log.exception("agent run failed")
@@ -199,7 +210,8 @@ class AgentRuntime:
             finally:
                 loop.call_soon_threadsafe(q.put_nowait, done)
 
-        threading.Thread(target=work, daemon=True, name=f"agent-{thread_id[:8]}").start()
+        ctx = contextvars.copy_context()
+        threading.Thread(target=ctx.run, args=(work,), daemon=True, name=f"agent-{thread_id[:8]}").start()
         while True:
             ev = await q.get()
             if ev is done:

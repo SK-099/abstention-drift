@@ -65,10 +65,14 @@ services:
     healthcheck: { disable: true }
     depends_on: { redis: { condition: service_healthy } }
 
-  # web:                                           # Next.js front end (added later)
-  #   build: ./web
-  #   ports: ["3000:3000"]
-  #   environment: { NEXT_PUBLIC_API_URL: http://localhost:8000, NEXT_PUBLIC_SENTRY_DSN: "${SENTRY_DSN_WEB:-}" }
+  web:                                             # Next.js notebook UI: http://localhost:3000
+    build:
+      context: ./web
+      args: { NEXT_PUBLIC_API_URL: "${PUBLIC_API_URL:-http://localhost:8000}" }   # URL the *browser* uses
+    image: abstain-web:local
+    ports: ["3000:3000"]
+    depends_on: { api: { condition: service_started } }
+    restart: unless-stopped
 
   # ------------------------------------------------------------------ data stores
   postgres:

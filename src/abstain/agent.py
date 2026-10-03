@@ -147,7 +147,9 @@ def make_retriever(retrievers: dict, k: int = 5):
 
 
 def docs_to_passages(docs) -> list[dict]:
-    return [{"document_id": d.metadata["document_id"], "title": d.metadata.get("title", ""),
+    """Passages for the agent state; extra metadata (e.g. page, section, source document) is kept."""
+    return [{**{k: v for k, v in d.metadata.items() if k not in ("document_id", "title", "score")},
+             "document_id": d.metadata["document_id"], "title": d.metadata.get("title", ""),
              "text": d.page_content, "score": d.metadata.get("score", 0.0)} for d in docs]
 
 

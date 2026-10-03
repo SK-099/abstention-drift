@@ -95,6 +95,23 @@ class Feedback(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
 
 
+class Note(Base):
+    """A note in a notebook (collection): written by the user or saved from an answer, with its citations."""
+
+    __tablename__ = "notes"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    collection_id: Mapped[str] = mapped_column(ForeignKey("collections.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    title: Mapped[str] = mapped_column(String(300), default="Untitled note")
+    content: Mapped[str] = mapped_column(Text, default="")
+    kind: Mapped[str] = mapped_column(String(20), default="note")  # note | answer
+    source_message_id: Mapped[str | None] = mapped_column(ForeignKey("messages.id", ondelete="SET NULL"))
+    citations: Mapped[list] = mapped_column(JSON, default=list)
+    pinned: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, onupdate=now)
+
+
 class EvalRun(Base):
     __tablename__ = "eval_runs"
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)

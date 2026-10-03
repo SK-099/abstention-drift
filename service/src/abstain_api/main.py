@@ -19,7 +19,7 @@ from . import __version__
 from .db import async_sessionmaker_
 from .guardrails import limiter
 from .models import Collection
-from .routers import chat, collections, conversations, feedback, health, metrics
+from .routers import chat, collections, conversations, feedback, health, metrics, models, notes
 from .settings import get_settings
 from .telemetry import setup_metrics, setup_sentry
 
@@ -80,7 +80,7 @@ def create_app() -> FastAPI:
     app.add_middleware(
         CORSMiddleware, allow_origins=s.cors_origins, allow_credentials=True, allow_methods=["*"], allow_headers=["*"]
     )
-    for r in (health, chat, conversations, feedback, collections, metrics):
+    for r in (health, chat, conversations, feedback, collections, notes, models, metrics):
         app.include_router(r.router)
     try:
         from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor

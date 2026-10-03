@@ -169,6 +169,9 @@ class QdrantStore:
                         "title": p.get("title", ""),
                         "text": p["text"],
                         "source_document": p.get("source_document"),
+                        "page": p.get("page"),
+                        "section": p.get("section"),
+                        "seq": p.get("seq"),
                     },
                 )
             )
@@ -186,10 +189,15 @@ class QdrantStore:
             ),
         )
 
-    def hybrid_search(self, query: str, query_vec: list[float], collection: str, limit: int) -> list[dict]:
+    def hybrid_search(
+        self, query: str, query_vec: list[float], collection: str, limit: int, documents=None
+    ) -> list[dict]:
         from qdrant_client import models as m
 
-        flt = m.Filter(must=[m.FieldCondition(key="collection", match=m.MatchValue(value=collection))])
+        must = [m.FieldCondition(key="collection", match=m.MatchValue(value=collection))]
+        if documents:  # the notebook's ticked sources only
+            must.append(m.FieldCondition(key="source_document", match=m.MatchAny(any=list(documents))))
+        flt = m.Filter(must=must)
         idx, val = bm25_query_vector(query)
         prefetch = [m.Prefetch(query=query_vec, using=self.DENSE, filter=flt, limit=self.s.prefetch_k)]
         if idx:
@@ -210,9 +218,32 @@ class QdrantStore:
                 "title": p.payload.get("title", ""),
                 "text": p.payload["text"],
                 "rrf": p.score,
+                **{k: p.payload.get(k) for k in ("source_document", "page", "section") if p.payload.get(k) is not None},
             }
             for p in res.points
         ]
+
+    def document_passages(self, document_id: str) -> list[dict]:
+        """All passages of one uploaded document, in reading order (for the source viewer)."""
+        from qdrant_client import models as m
+
+        flt = m.Filter(must=[m.FieldCondition(key="source_document", match=m.MatchValue(value=document_id))])
+        out, offset = [], None
+        while True:
+            pts, offset = self.client.scroll(self.name, scroll_filter=flt, limit=256, offset=offset, with_payload=True)
+            out += [
+                {
+                    "passage_id": q.payload["passage_id"],
+                    "text": q.payload["text"],
+                    "page": q.payload.get("page"),
+                    "section": q.payload.get("section"),
+                    "seq": q.payload.get("seq"),
+                }
+                for q in pts
+            ]
+            if offset is None:
+                break
+        return sorted(out, key=_reading_order)
 
     def count(self, collection: str | None = None) -> int:
         from qdrant_client import models as m
@@ -225,14 +256,27 @@ class QdrantStore:
         return self.client.count(self.name, count_filter=flt, exact=True).count
 
 
+def _reading_order(p: dict):
+    if p.get("seq") is not None:
+        return (0, p["seq"])
+    tail = p["passage_id"].rsplit("-", 1)[-1]
+    return (1, int(tail)) if tail.isdigit() else (2, p["passage_id"])
+
+
 class HybridQdrantRetriever:
     """search(query, collection, k) -> top-k passages with re-ranker scores (same shape as the research code)."""
 
     def __init__(self, s: Settings, store: QdrantStore, embedder: Embedder, reranker: Reranker):
         self.s, self.store, self.embedder, self.reranker = s, store, embedder, reranker
 
-    def search(self, query: str, collection: str, k: int | None = None) -> list[dict]:
-        cands = self.store.hybrid_search(query, self.embedder.embed_query(query), collection, self.s.rerank_top_n)
+    def search(self, query: str, collection: str, k: int | None = None, documents=None) -> list[dict]:
+        if documents is None:
+            from .model_registry import REQUEST_DOCS
+
+            documents = REQUEST_DOCS.get()
+        cands = self.store.hybrid_search(
+            query, self.embedder.embed_query(query), collection, self.s.rerank_top_n, documents=documents
+        )
         scores = self.reranker.scores(query, [c["text"] for c in cands])
         ranked = sorted((dict(c, score=float(sc)) for c, sc in zip(cands, scores)), key=lambda p: -p["score"])
         return ranked[: k or self.s.final_k]
@@ -250,7 +294,12 @@ def make_lc_retriever(retriever: HybridQdrantRetriever):
             return [
                 Document(
                     page_content=p["text"],
-                    metadata={"document_id": p["document_id"], "title": p["title"], "score": p["score"]},
+                    metadata={
+                        "document_id": p["document_id"],
+                        "title": p["title"],
+                        "score": p["score"],
+                        **{k: p[k] for k in ("source_document", "page", "section") if p.get(k) is not None},
+                    },
                 )
                 for p in self.backend.search(query, collection)
             ]
@@ -299,6 +348,9 @@ class PgVectorStore:
             c.execute(f"CREATE INDEX IF NOT EXISTS {t}_tsv ON {t} USING gin (tsv)")
             c.execute(f"CREATE INDEX IF NOT EXISTS {t}_col ON {t} (collection)")
             c.execute(f"CREATE INDEX IF NOT EXISTS {t}_doc ON {t} (source_document)")
+            c.execute(f"ALTER TABLE {t} ADD COLUMN IF NOT EXISTS page integer")
+            c.execute(f"ALTER TABLE {t} ADD COLUMN IF NOT EXISTS section text")
+            c.execute(f"ALTER TABLE {t} ADD COLUMN IF NOT EXISTS seq integer")
 
     def upsert(self, collection: str, passages: list[dict], dense: list[list[float]], batch: int = 256) -> int:
         rows = [
@@ -310,15 +362,20 @@ class PgVectorStore:
                 p["text"],
                 p.get("source_document"),
                 self._vec(v),
+                p.get("page"),
+                p.get("section"),
+                p.get("seq"),
             )
             for p, v in zip(passages, dense)
         ]
         with self._conn() as c, c.cursor() as cur:
             cur.executemany(
-                f"""INSERT INTO {self.table} (id, collection, passage_id, title, text, source_document, embedding)
-                VALUES (%s, %s, %s, %s, %s, %s, %s::vector)
+                f"""INSERT INTO {self.table}
+                    (id, collection, passage_id, title, text, source_document, embedding, page, section, seq)
+                VALUES (%s, %s, %s, %s, %s, %s, %s::vector, %s, %s, %s)
                 ON CONFLICT (id) DO UPDATE SET title = EXCLUDED.title, text = EXCLUDED.text,
-                    source_document = EXCLUDED.source_document, embedding = EXCLUDED.embedding""",
+                    source_document = EXCLUDED.source_document, embedding = EXCLUDED.embedding,
+                    page = EXCLUDED.page, section = EXCLUDED.section, seq = EXCLUDED.seq""",
                 rows,
             )
         return len(rows)
@@ -327,27 +384,52 @@ class PgVectorStore:
         with self._conn() as c:
             c.execute(f"DELETE FROM {self.table} WHERE source_document = %s", (document_id,))
 
-    def hybrid_search(self, query: str, query_vec: list[float], collection: str, limit: int) -> list[dict]:
+    def hybrid_search(
+        self, query: str, query_vec: list[float], collection: str, limit: int, documents=None
+    ) -> list[dict]:
         k, t = self.s.prefetch_k, self.table
+        cols = "passage_id, title, text, source_document, page, section"
+        where, args = "collection = %s", [collection]
+        if documents:  # the notebook's ticked sources only
+            where += " AND source_document = ANY(%s)"
+            args.append(list(documents))
+        tsq = " OR ".join(tokenize(query)) or query
         with self._conn() as c:
             dense = c.execute(
-                f"SELECT passage_id, title, text FROM {t} WHERE collection = %s "
-                f"ORDER BY embedding <=> %s::vector LIMIT %s",
-                (collection, self._vec(query_vec), k),
+                f"SELECT {cols} FROM {t} WHERE {where} ORDER BY embedding <=> %s::vector LIMIT %s",
+                (*args, self._vec(query_vec), k),
             ).fetchall()
             sparse = c.execute(
-                f"SELECT passage_id, title, text FROM {t} WHERE collection = %s AND "
-                f"tsv @@ websearch_to_tsquery('english', %s) ORDER BY ts_rank_cd(tsv, "
-                f"websearch_to_tsquery('english', %s)) DESC LIMIT %s",
-                (collection, " OR ".join(tokenize(query)) or query, " OR ".join(tokenize(query)) or query, k),
+                f"SELECT {cols} FROM {t} WHERE {where} AND tsv @@ websearch_to_tsquery('english', %s) "
+                f"ORDER BY ts_rank_cd(tsv, websearch_to_tsquery('english', %s)) DESC LIMIT %s",
+                (*args, tsq, tsq, k),
             ).fetchall()
         score, info = {}, {}
         for ranking in (dense, sparse):
-            for r, (pid, title, text) in enumerate(ranking):
-                score[pid] = score.get(pid, 0.0) + 1.0 / (60 + r + 1)
-                info[pid] = (title, text)
+            for r, row in enumerate(ranking):
+                score[row[0]] = score.get(row[0], 0.0) + 1.0 / (60 + r + 1)
+                info[row[0]] = row
         top = sorted(score, key=lambda p: -score[p])[:limit]
-        return [{"document_id": p, "title": info[p][0] or "", "text": info[p][1], "rrf": score[p]} for p in top]
+        out = []
+        for pid in top:
+            _, title, text, src, page, section = info[pid]
+            d = {"document_id": pid, "title": title or "", "text": text, "rrf": score[pid]}
+            d.update(
+                {k: v for k, v in (("source_document", src), ("page", page), ("section", section)) if v is not None}
+            )
+            out.append(d)
+        return out
+
+    def document_passages(self, document_id: str) -> list[dict]:
+        with self._conn() as c:
+            rows = c.execute(
+                f"SELECT passage_id, text, page, section, seq FROM {self.table} WHERE source_document = %s",
+                (document_id,),
+            ).fetchall()
+        return sorted(
+            ({"passage_id": r[0], "text": r[1], "page": r[2], "section": r[3], "seq": r[4]} for r in rows),
+            key=_reading_order,
+        )
 
     def count(self, collection: str | None = None) -> int:
         with self._conn() as c:

@@ -30,6 +30,22 @@ class Settings(BaseSettings):
     llm_max_tokens: int = 320  # answer length cap (the research runs used 128)
     llm_timeout_s: float = 120.0
     llm_seed: int | None = 13
+    # --- model picker: the user chooses any model listed by GET /models. Providers appear when configured.
+    # Model ids are "<provider>:<model>", e.g. "ollama:qwen2.5:3b", "openrouter:anthropic/claude-sonnet-4.5".
+    default_model: str | None = None  # default: "local:" + LLM_MODEL (the calibrated research model)
+    ollama_url: str | None = None  # Ollama server for model discovery (default: derived from LLM_BASE_URL)
+    openrouter_api_key: str | None = None  # one key: Claude, GPT, Gemini, Llama, Qwen, DeepSeek, Mistral, ...
+    openai_api_key: str | None = None
+    anthropic_api_key: str | None = None
+    gemini_api_key: str | None = None
+    groq_api_key: str | None = None
+    mistral_api_key: str | None = None
+    deepseek_api_key: str | None = None
+    together_api_key: str | None = None
+    model_allowlist: list[str] = []  # optional glob patterns ("openrouter:anthropic/*"); empty = everything
+    model_blocklist: list[str] = []
+    models_cache_s: int = 600  # provider model lists are re-fetched after this many seconds
+    reasoning_max_tokens: int = 4000  # completion budget for reasoning models (o-series, gpt-5, thinking models)
 
     # --- retrieval
     vector_store: Literal["qdrant", "pgvector"] = "qdrant"  # pgvector: same hybrid search inside PostgreSQL

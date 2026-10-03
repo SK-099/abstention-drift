@@ -14,7 +14,7 @@ import json
 import logging
 import time
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sse_starlette.sse import EventSourceResponse
@@ -25,7 +25,7 @@ from ..agent_runtime import get_runtime
 from ..auth import current_user
 from ..db import async_sessionmaker_, get_session
 from ..guardrails import limiter
-from ..models import Conversation, Message, User, now
+from ..models import Conversation, Document, Message, User, now
 from ..prompts import versions
 from ..safety import BLOCKED_INPUT, check_input
 from ..schemas import ChatRequest
@@ -51,6 +51,12 @@ async def chat_stream(
     session: AsyncSession = Depends(get_session),
 ):
     s = get_settings()
+    from ..model_registry import get_registry
+
+    try:  # the model chosen in the picker (validated: provider configured, allow/block lists)
+        model_id = get_registry(s).resolve(body.model)
+    except ValueError as e:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(e)) from e
     gin = await asyncio.to_thread(check_input, body.message)  # input guardrails (injection, toxicity, PII)
     question = gin.text  # personal data / secrets redacted before the LLM, the DB or the traces see them
     if body.conversation_id:
@@ -67,6 +73,20 @@ async def chat_stream(
         .all()
     )
     turn = 1 + sum(m.role == "user" for m in prev)
+    documents = None
+    if body.document_ids is not None:  # ticked sources: must belong to this notebook
+        ok = set(
+            (
+                await session.execute(
+                    select(Document.id).where(Document.collection_id == collection, Document.id.in_(body.document_ids))
+                )
+            )
+            .scalars()
+            .all()
+        )
+        if not ok:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "no selected source belongs to this notebook")
+        documents = sorted(ok)
     umsg = Message(conversation_id=conv.id, role="user", content=question, turn=turn, meta={"guardrails": gin.events})
     session.add(umsg)
     conv.updated_at = now()
@@ -83,6 +103,7 @@ async def chat_stream(
     )
     ver = versions(s)
     handler = langfuse_handler(s)
+    ver = {**ver, "llm_model": model_id}
     meta = trace_metadata(user.id, conv.id, ver, collection)
     trace = (
         TurnTrace(
@@ -101,13 +122,27 @@ async def chat_stream(
         yield {
             "event": "meta",
             "data": json.dumps(
-                {"conversation_id": conv_id, "message_id": user_msg_id, "turn": turn, "collection": collection}
+                {
+                    "conversation_id": conv_id,
+                    "message_id": user_msg_id,
+                    "turn": turn,
+                    "collection": collection,
+                    "model": model_id,
+                }
             ),
         }
         for e in gin.events:  # input redactions (personal data / secrets removed from the question)
             yield {"event": "guardrail", "data": json.dumps(e)}
         final, t0 = None, time.perf_counter()
-        async for ev in rt.astream(task, conv_id, callbacks=[handler] if handler else None, metadata=meta, trace=trace):
+        async for ev in rt.astream(
+            task,
+            conv_id,
+            callbacks=[handler] if handler else None,
+            metadata=meta,
+            trace=trace,
+            model=model_id,
+            documents=documents,
+        ):
             if ev["event"] == "final":
                 final = ev["data"]
                 continue  # sent after it is stored (with the message id)
@@ -130,7 +165,7 @@ async def chat_stream(
                     for k in ("abstained_by", "query", "queries", "attempts", "citations", "trace", "timings")
                 }
                 | {"guardrails": final.get("guardrails", [])}
-                | {"versions": ver},
+                | {"versions": ver, "model": model_id, "documents": documents},
             )
             db.add(amsg)
             await db.commit()
@@ -140,6 +175,7 @@ async def chat_stream(
         )
         get_metrics().guardrail_events(e for e in final.get("guardrails", []) if e["stage"] == "output")
         final["conversation_id"] = conv_id
+        final["model"] = model_id
         yield {"event": "final", "data": json.dumps(final)}
         if handler:
             flush()

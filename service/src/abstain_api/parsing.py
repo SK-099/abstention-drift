@@ -46,13 +46,35 @@ def parse_and_chunk(path: str | Path, s: Settings) -> list[dict]:
                 raise
             log.exception("Docling failed on %s; falling back to the basic parser", path.name)
     if chunks is None:
-        title, text = basic_extract(path)
-        chunks = [
-            {"title": title, "section": section, "text": c}
-            for section, body in split_sections(text, markdown=path.suffix.lower() != ".pdf")
-            for c in chunk_text(body, s.chunk_words, s.chunk_overlap)
-        ]
+        title, text = basic_extract(path, page_markers=True)
+        chunks = with_pages(
+            [
+                {"title": title, "section": section, "text": c}
+                for section, body in split_sections(text, markdown=path.suffix.lower() != ".pdf")
+                for c in chunk_text(body, s.chunk_words, s.chunk_overlap)
+            ]
+        )
     return [piece for c in chunks for piece in with_header(c, s.passage_chars, s.chunk_overlap)]
+
+
+PAGE_MARK = re.compile(r"\u27e6p:(\d+)\u27e7")  # "⟦p:N⟧" inserted at the start of every PDF page
+
+
+def with_pages(chunks: list[dict]) -> list[dict]:
+    """Give every chunk the page its first word is on, and remove the page markers from the text.
+    (Chunks are in reading order; a chunk without a marker lies on the page of the last marker seen.)"""
+    current, out = None, []
+    for c in chunks:
+        marks = list(PAGE_MARK.finditer(c["text"]))
+        page = current
+        if marks:
+            first = marks[0]
+            page = int(first.group(1)) if not c["text"][: first.start()].strip() else int(first.group(1)) - 1
+            current = int(marks[-1].group(1))
+        text = re.sub(r"\s+", " ", PAGE_MARK.sub(" ", c["text"])).strip()
+        if text:
+            out.append({**c, "text": text, "page": page})
+    return out
 
 
 def with_header(chunk: dict, max_chars: int, overlap: int) -> list[dict]:
@@ -157,21 +179,31 @@ def _docling_chunks(path: Path) -> list[dict]:
     doc = DocumentConverter().convert(str(path)).document
     out = []
     for ch in HybridChunker().chunk(dl_doc=doc):
-        heads = getattr(getattr(ch, "meta", None), "headings", None) or []
+        meta = getattr(ch, "meta", None)
+        heads = getattr(meta, "headings", None) or []
+        page = None
+        try:
+            page = meta.doc_items[0].prov[0].page_no
+        except Exception:
+            pass
         text = ch.text.strip()
         if text:
-            out.append({"title": path.stem, "section": " › ".join(heads), "text": text})
+            out.append({"title": path.stem, "section": " › ".join(heads), "text": text, "page": page})
     return out
 
 
-def basic_extract(path: Path) -> tuple[str, str]:
+def basic_extract(path: Path, page_markers: bool = False) -> tuple[str, str]:
+    """(title, text). With page_markers, every PDF page starts with a "⟦p:N⟧" line (see with_pages)."""
     ext = path.suffix.lower()
     if ext == ".pdf":
         from pypdf import PdfReader
 
         r = PdfReader(str(path))
         title = r.metadata.title if r.metadata and r.metadata.title else path.stem
-        return title, "\n\n".join((p.extract_text() or "") for p in r.pages)
+        pages = [(p.extract_text() or "") for p in r.pages]
+        if page_markers:
+            pages = [f"\u27e6p:{i}\u27e7\n{t}" for i, t in enumerate(pages, 1)]
+        return title, "\n\n".join(pages)
     if ext in {".html", ".htm"}:
         from bs4 import BeautifulSoup
 
