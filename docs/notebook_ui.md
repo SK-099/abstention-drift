@@ -16,6 +16,26 @@ The picker lists:
 * **Local models**: the configured `LLM_MODEL` (`qwen2.5:3b`, marked with a shield: the abstention thresholds
   τ and min_p were calibrated for it) and every other model installed in Ollama (`ollama pull llama3.2:3b`,
   …), discovered automatically.
+* **Free open-weight models via Ollama** (`service/scripts/pull_free_models.ps1` pulls a set):
+
+| Model (Ollama tag) | Size | Notes |
+| --- | --- | --- |
+| `qwen2.5:3b` | 1.9 GB | research model, calibrated; Apache 2.0 |
+| `qwen2.5:1.5b`, `qwen2.5:7b` | 1 / 4.7 GB | same family, smaller / larger |
+| `qwen3:1.7b`, `qwen3:4b`, `qwen3:8b` | 1.4 / 2.5 / 5.2 GB | thinks before answering (hidden), slower |
+| `llama3.2:1b`, `llama3.2:3b`, `llama3.1:8b` | 1.3 / 2 / 4.9 GB | Meta, Llama community licence |
+| `gemma3:1b`, `gemma3:4b` | 0.8 / 3.3 GB | Google, Gemma terms |
+| `phi4-mini` (3.8B) | 2.5 GB | Microsoft, MIT |
+| `granite4:3b`, `granite4.2:8b` | | IBM, Apache 2.0, built for RAG |
+| `deepseek-r1:1.5b`, `deepseek-r1:7b` | 1.1 / 4.7 GB | reasoning (distilled into Qwen), MIT; slow |
+| `mistral:7b` | 4.1 GB | Mistral AI, Apache 2.0 |
+| `olmo-3:7b` | | AI2, fully open (data + code) |
+| `smollm2:1.7b` | | Hugging Face, Apache 2.0, very fast |
+
+  On a 4 GB GPU, models up to ~4B parameters run fully on the GPU; 7–8B models spill to the CPU and are
+  several times slower. Reasoning models' `<think>` text is hidden automatically. BLOOM/BLOOMZ (2022) exist
+  only as community uploads (`gouranshitera/bloomz-1b7`); they follow instructions poorly and are not
+  recommended except as a historical baseline.
 * **Cloud models**: add any of these keys to `.env` and that provider's models appear (listed live from the
   provider, so new models show up without code changes):
 

@@ -63,7 +63,9 @@ _SKIP = re.compile(
     r"search-preview|computer-use|babbage|davinci|sora|codex-mini|\blyria",
     re.I,
 )
-_REASONING = re.compile(r"(^|[/:])(o\d)(-|$)|gpt-5|reasoner|thinking|(^|[-/])r1\b|qwq", re.I)
+_REASONING = re.compile(
+    r"(^|[/:])(o\d)(-|$)|gpt-5|reasoner|thinking|(^|[-/])r1\b|qwq|(^|[/:])qwen3(?![.\d]|-coder)|magistral", re.I
+)
 # shown first in the picker (as in ChatGPT / Claude.ai), per provider
 _FEATURED = re.compile(
     r"claude|gpt-4\.1|gpt-4o|gpt-5|(^|/)o[34]|gemini-2\.5|gemini-3|llama-3\.3|llama-4|qwen3|qwen-?2\.5|deepseek|mistral-large|"

@@ -7,11 +7,29 @@ stream writer, so the API can push them to the browser as they arrive.
 
 from __future__ import annotations
 
+import re
 import time
 
 from abstain.agent import STREAM_TOKENS
 
 from .settings import Settings
+
+_THINK = re.compile(r"<think>.*?(</think>|$)", re.S | re.I)
+
+
+def strip_thinking(text: str) -> str:
+    """Remove a reasoning model's <think>...</think> block (an unclosed one means it ran out of tokens)."""
+    return _THINK.sub("", text or "").strip()
+
+
+def visible_text(text: str) -> str:
+    """The part of a partial stream that is safe to show: nothing while a <think> block may still be open."""
+    t = text.lstrip()
+    if not t:
+        return ""
+    if "<think>".startswith(t[:7]) and "</think>" not in t:  # inside (or starting) a think block
+        return ""
+    return strip_thinking(text).lstrip() if "<think>" in t else text.lstrip()
 
 
 class OpenAICompatChat:
@@ -77,7 +95,7 @@ class OpenAICompatChat:
             try:
                 if STREAM_TOKENS.get():
                     return self._stream(model, msgs)
-                return str(model.invoke(msgs).content).strip()
+                return strip_thinking(str(model.invoke(msgs).content))
             except Exception:
                 if attempt == self.retries - 1:
                     raise
@@ -92,14 +110,18 @@ class OpenAICompatChat:
             write = get_stream_writer()
         except Exception:  # not running inside a graph
             write = None
-        parts = []
+        parts, shown = [], 0
         for chunk in model.stream(msgs):
             t = chunk.content if isinstance(chunk.content, str) else ""
-            if t:
-                parts.append(t)
-                if write:
-                    write({"type": "token", "text": t})
-        return "".join(parts).strip()
+            if not t:
+                continue
+            parts.append(t)
+            # reasoning models (DeepSeek-R1, Qwen3, ...) think inside <think>...</think>: stream only the answer
+            visible = visible_text("".join(parts))
+            if write and len(visible) > shown:
+                write({"type": "token", "text": visible[shown:]})
+                shown = len(visible)
+        return strip_thinking("".join(parts))
 
 
 class RoutingChat:
