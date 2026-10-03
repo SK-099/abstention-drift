@@ -77,7 +77,8 @@ export default function ModelPicker({
       const s = q.toLowerCase();
       return m.name.toLowerCase().includes(s) || m.id.toLowerCase().includes(s) || m.provider_label.toLowerCase().includes(s);
     });
-    const featured = q.trim() ? [] : ms.filter((m) => m.featured || m.calibrated).slice(0, 12);
+    // a "Recommended" shortcut only helps when the list is long
+    const featured = q.trim() || ms.length <= 8 ? [] : ms.filter((m) => m.featured || m.calibrated).slice(0, 12);
     const byProvider = new Map<string, ModelInfo[]>();
     for (const m of ms) {
       const k = m.provider_label;
