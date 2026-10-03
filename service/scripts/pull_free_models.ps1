@@ -16,9 +16,9 @@ $small = @(
   "deepseek-r1:1.5b",  # reasoning model (slow, thinks first)
   "smollm2:1.7b"
 )
-$large = @("qwen2.5:7b", "qwen3:8b", "llama3.1:8b", "deepseek-r1:7b", "mistral:7b", "olmo-3:7b", "granite4.2:8b")
+$bigModels = @("qwen2.5:7b", "qwen3:8b", "llama3.1:8b", "deepseek-r1:7b", "mistral:7b", "olmo-3:7b", "granite4.2:8b")
 
-$models = if ($Large) { $small + $large } else { $small }
+$models = if ($Large) { $small + $bigModels } else { $small }
 foreach ($m in $models) {
   Write-Host "==> ollama pull $m"
   ollama pull $m
