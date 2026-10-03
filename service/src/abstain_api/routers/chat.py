@@ -23,6 +23,7 @@ from abstain.data import Task
 
 from ..agent_runtime import get_runtime
 from ..auth import current_user
+from ..calibration import get_calibrations
 from ..db import async_sessionmaker_, get_session
 from ..guardrails import limiter
 from ..models import Conversation, Document, Message, User, now
@@ -103,7 +104,14 @@ async def chat_stream(
     )
     ver = versions(s)
     handler = langfuse_handler(s)
-    ver = {**ver, "llm_model": model_id}
+    th = get_calibrations(s).get(model_id)
+    ver = {
+        **ver,
+        "llm_model": model_id,
+        "tau": round(th.tau, 4),
+        "self_check_min_p": round(th.min_p, 4),
+        "thresholds": th.source,  # research | calibrated | default (model not calibrated)
+    }
     meta = trace_metadata(user.id, conv.id, ver, collection)
     trace = (
         TurnTrace(

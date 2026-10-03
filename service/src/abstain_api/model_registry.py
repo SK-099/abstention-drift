@@ -17,7 +17,7 @@ import logging
 import re
 import threading
 import time
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 
 from .settings import Settings
 
@@ -84,8 +84,9 @@ class ModelInfo:
     context_length: int | None = None
     reasoning: bool = False
     featured: bool = False
-    calibrated: bool = False  # the research thresholds (tau, min_p) were tuned for this model
+    calibrated: bool = False  # refusal thresholds (tau, min_p) were tuned for this model
     description: str = ""
+    calibration: dict | None = None  # tau, min_p and dev metrics (see calibration.py)
     extra: dict = field(default_factory=dict)
 
     def public(self) -> dict:
@@ -147,7 +148,7 @@ def _list_local(s: Settings, p: Provider) -> list[ModelInfo]:
         name=s.llm_model,
         calibrated=True,
         featured=True,
-        description="Research model: abstention thresholds were calibrated for it",
+        description="Research model",
     )
     out = {calibrated.id: calibrated}
     base = (s.ollama_url or re.sub(r"/v1/?$", "", s.llm_base_url)).rstrip("/")
@@ -209,6 +210,17 @@ def _list_remote(s: Settings, p: Provider) -> list[ModelInfo]:
     return out
 
 
+def _public_calibration(th) -> dict | None:
+    if not th.calibrated:
+        return None
+    d = {"tau": round(th.tau, 3), "min_p": round(th.min_p, 3), "source": th.source}
+    st = th.stats or {}
+    for k in ("f1", "recall", "fa", "precision", "n_dev", "refusal_rate_answerable", "calibrated_at"):
+        if st.get(k) is not None:
+            d[k] = round(st[k], 3) if isinstance(st[k], float) else st[k]
+    return d
+
+
 class ModelRegistry:
     def __init__(self, s: Settings):
         self.s = s
@@ -232,9 +244,17 @@ class ModelRegistry:
         return models
 
     def list(self) -> list[ModelInfo]:
+        from .calibration import get_calibrations
+
+        cal = get_calibrations(self.s)
         out = []
         for p in configured_providers(self.s):
-            out += [m for m in self._provider_models(p) if _allowed(self.s, m.id)]
+            for m0 in self._provider_models(p):
+                if not _allowed(self.s, m0.id):
+                    continue
+                th = cal.get(m0.id)
+                m = replace(m0, calibrated=th.calibrated, calibration=_public_calibration(th))
+                out.append(m)
         dflt = default_model_id(self.s)
         out.sort(key=lambda m: (m.id != dflt, m.provider != "local", m.provider, not m.featured, m.name.lower()))
         return out

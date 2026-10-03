@@ -137,13 +137,14 @@ has secrets: Fly.io (`FLY_API_TOKEN`), Render (`RENDER_DEPLOY_HOOK`) or Kubernet
 | Production-style | Vercel | Kubernetes on EKS / GKE / AKS (`deploy/k8s`, HPA, ingress with SSE settings) | vLLM on GPU nodes (`deploy/k8s/vllm.yaml`) | managed Postgres, managed Redis, Qdrant Cloud (restore the snapshot) |
 
 Switching LLM provider only changes `LLM_BASE_URL`, `LLM_MODEL` and `LLM_API_KEY`; re-run the
-calibration and the live quality gate before release, because τ and min_p were tuned for Qwen2.5-3B.
+calibration and the live quality gate before release. Per-model thresholds for the notebook's model menu:
+`docker compose run --rm calibrate` (see docs/notebook_ui.md).
 
 ## 6. Tests
 
 ```bash
 uv run pytest tests -q                       # research package (26)
-cd service && uv run pytest -q               # service: SQLite + in-memory Qdrant (23)
+cd service && uv run pytest -q               # service: SQLite + in-memory Qdrant (35)
 TEST_DATABASE_URL=postgresql+asyncpg://app:app@localhost:5432/app TEST_CHECKPOINTER=postgres \
   TEST_QDRANT_URL=http://localhost:6333 uv run pytest -q          # real Postgres + Qdrant
 TEST_DATABASE_URL=... TEST_VECTOR_STORE=pgvector uv run pytest -q  # pgvector backend

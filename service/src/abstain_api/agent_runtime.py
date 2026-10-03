@@ -108,10 +108,15 @@ class AgentRuntime:
     ) -> Iterator[dict]:
         """`trace`: optional tracing.TurnTrace, entered here because it must live in the graph's thread.
         `model`: model id from the picker (None = default); `documents`: restrict search to these documents."""
-        from .model_registry import REQUEST_DOCS, REQUEST_MODEL
+        from abstain.agent import THRESHOLDS
+
+        from .calibration import get_calibrations
+        from .model_registry import REQUEST_DOCS, REQUEST_MODEL, default_model_id
 
         REQUEST_MODEL.set(model)
         REQUEST_DOCS.set(tuple(documents) if documents else None)
+        th = get_calibrations(self.s).get(model or default_model_id(self.s))
+        THRESHOLDS.set((th.tau, th.min_p))  # this model's own calibrated tau / min_p
         if trace is None:
             yield from self._stream(task, thread_id, callbacks, metadata)
             return

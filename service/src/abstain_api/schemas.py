@@ -169,6 +169,7 @@ class ModelOut(BaseModel):
     featured: bool = False
     calibrated: bool = False
     description: str = ""
+    calibration: dict | None = None
 
 
 class ModelsOut(BaseModel):

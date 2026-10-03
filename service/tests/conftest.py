@@ -23,6 +23,7 @@ os.environ.update(
         "ADMIN_USER_IDS": '["admin"]',
         "VECTOR_STORE": os.environ.get("TEST_VECTOR_STORE", "qdrant"),
         "UPLOAD_DIR": f"{TMP}/uploads",
+        "CALIBRATION_DIR": f"{TMP}/calibration",
         "PARSER": "basic",
         "GATE_THRESHOLD": "0.5",
         "SELF_CHECK_MIN_P": "0.0",

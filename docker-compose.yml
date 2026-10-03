@@ -65,6 +65,19 @@ services:
     healthcheck: { disable: true }
     depends_on: { redis: { condition: service_healthy } }
 
+  calibrate:                                       # per-model refusal thresholds (tau, min_p) on MTRAG dev
+    <<: *app                                       #   docker compose run --rm calibrate [--models llama3.2:3b ...]
+    pull_policy: never              # built by the api service
+    profiles: [tools]
+    restart: "no"
+    entrypoint: ["python", "service/scripts/calibrate_models.py"]
+    command: []
+    volumes:
+      - ./checkpoints:/app/checkpoints             # writable: results go to checkpoints/calibration/
+      - ./outputs:/app/outputs:ro                  # checker_dev.jsonl + the research model's cached answers
+      - ./data/mt-rag-benchmark:/app/data/mt-rag-benchmark:ro
+      - app-data:/data
+
   web:                                             # Next.js notebook UI: http://localhost:3000
     build:
       context: ./web

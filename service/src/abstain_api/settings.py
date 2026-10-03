@@ -46,6 +46,7 @@ class Settings(BaseSettings):
     model_blocklist: list[str] = []
     models_cache_s: int = 600  # provider model lists are re-fetched after this many seconds
     reasoning_max_tokens: int = 4000  # completion budget for reasoning models (o-series, gpt-5, thinking models)
+    reasoning_timeout_s: float = 600.0
 
     # --- retrieval
     vector_store: Literal["qdrant", "pgvector"] = "qdrant"  # pgvector: same hybrid search inside PostgreSQL
@@ -69,6 +70,7 @@ class Settings(BaseSettings):
     gate_threshold: float | None = None  # default: checker_path/threshold.json
     self_check_min_p: float | None = None  # default: checkpoints/self_check.json
     self_check_file: str = "checkpoints/self_check.json"
+    calibration_dir: str = "checkpoints/calibration"  # per-model tau / min_p (service/scripts/calibrate_models.py)
     max_retries: int = 1
     self_check: bool = True
     clarify: bool = True

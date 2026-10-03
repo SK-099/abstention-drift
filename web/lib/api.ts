@@ -82,6 +82,17 @@ export type ModelInfo = {
   featured: boolean;
   calibrated: boolean;
   description: string;
+  /** refusal thresholds tuned for this model on MTRAG dev (service/scripts/calibrate_models.py) */
+  calibration?: {
+    tau: number;
+    min_p: number;
+    source: "research" | "calibrated";
+    f1?: number;
+    recall?: number;
+    fa?: number;
+    n_dev?: number;
+    refusal_rate_answerable?: number;
+  } | null;
 };
 
 export type ModelsResponse = {

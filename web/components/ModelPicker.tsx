@@ -145,6 +145,13 @@ export default function ModelPicker({
               </p>
             ))}
           </div>
+          <p className="flex items-start gap-1.5 border-t border-line px-3 py-2 text-xs text-muted">
+            <ShieldCheck size={13} className="mt-px shrink-0 text-ok" />
+            <span>
+              Refusal thresholds calibrated for this model. Models without the shield use the research model&apos;s
+              thresholds, so they may refuse too often or too rarely.
+            </span>
+          </p>
           {missing.length > 0 && (
             <p className="border-t border-line px-3 py-2 text-xs text-muted">
               More models: add an API key for {missing.slice(0, 4).join(", ")}
@@ -155,6 +162,19 @@ export default function ModelPicker({
         </div>
       )}
     </div>
+  );
+}
+
+function calibrationText(m: ModelInfo) {
+  const c = m.calibration;
+  if (!c) return "Refusal thresholds calibrated for this model";
+  const pct = (v?: number) => (v === undefined ? "?" : `${Math.round(v * 100)}%`);
+  const minp = c.min_p > 1 ? "self-check off" : `self-check from p ≥ ${c.min_p.toFixed(2)}`;
+  return (
+    `${c.source === "research" ? "Research calibration" : "Calibrated"} on MTRAG dev` +
+    (c.n_dev ? ` (${c.n_dev} questions)` : "") +
+    `: gate τ = ${c.tau.toFixed(2)}, ${minp}. ` +
+    `Finds ${pct(c.recall)} of unanswerable questions, refuses ${pct(c.fa)} of answerable ones (F1 ${c.f1?.toFixed(2) ?? "?"}).`
   );
 }
 
@@ -175,7 +195,7 @@ function Item({ m, active, onClick }: { m: ModelInfo; active: boolean; onClick: 
         <span className="flex items-center gap-1.5 text-sm font-medium">
           <span className="truncate">{m.name}</span>
           {m.calibrated && (
-            <span title="Abstention thresholds were calibrated for this model" className="text-ok">
+            <span title={calibrationText(m)} className="text-ok">
               <ShieldCheck size={14} />
             </span>
           )}

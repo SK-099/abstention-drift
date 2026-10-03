@@ -13,8 +13,8 @@ The `web/` folder is a Next.js 16 front end for the service, modelled on Google 
 
 The picker lists:
 
-* **Local models**: the configured `LLM_MODEL` (`qwen2.5:3b`, marked with a shield: the abstention thresholds
-  τ and min_p were calibrated for it) and every other model installed in Ollama (`ollama pull llama3.2:3b`,
+* **Local models**: the configured `LLM_MODEL` (`qwen2.5:3b`, the research model) and every other model
+  installed in Ollama (`ollama pull llama3.2:3b`,
   …), discovered automatically.
 * **Free open-weight models via Ollama** (`service/scripts/pull_free_models.ps1` pulls a set):
 
@@ -51,10 +51,34 @@ The picker lists:
 `MODEL_BLOCKLIST` (JSON lists of glob patterns) limit what users can pick. Reasoning models (o-series,
 GPT-5, R1, "thinking" models) get a larger output budget and no temperature setting automatically.
 
-**Note on abstention.** The answerability gate (the fine-tuned re-ranker) does not depend on the LLM, so it
-works with every model. The generator's refusals and the self-check do depend on the model; τ and min_p
-were calibrated for Qwen2.5-3B. Larger models usually answer more and hallucinate less; run
-`service/scripts/recalibrate.py` with the new model before relying on its refusal rate.
+## Refusal thresholds for every model
+
+The agent abstains when the gate score p ≥ τ, when the model refuses on its own, or when p ≥ min_p and the
+self-check judges the answer unsupported. The gate (fine-tuned re-ranker) does not depend on the LLM, but the
+model's own refusals and its self-check verdicts do, so τ and min_p are calibrated **per model**:
+
+```powershell
+docker compose run --rm calibrate                                   # every model installed in Ollama
+docker compose run --rm calibrate --models llama3.2:3b gemma3:4b    # only these
+docker compose run --rm calibrate --models openrouter:openai/gpt-4.1-mini   # cloud model (costs API credit)
+```
+
+`service/scripts/calibrate_models.py` uses the same 224 MTRAG **dev** examples as the research calibration
+(150 answerable, 74 unanswerable; never the test set) and calls each model through the same client the app
+uses. For each model it records the generator's answer and the self-check verdict per example, then picks the
+(τ, min_p) pair with the best abstention F1 whose false-abstention rate is at most the model's own refusal
+rate + 10 points (the research procedure allowed 5 points for the gate and 5 for the self-check). Qwen2.5-3B
+keeps the research values (τ 0.611, min_p 0.5) so the report stays valid; its cached research answers are
+reused, not re-generated.
+
+Results go to `checkpoints/calibration/<model>.json` (+ `summary.md`, `summary.csv`). The API reads them
+without a restart: each answer then uses its model's own τ and min_p (stored in the message's `versions`
+with `thresholds: calibrated | research | default`), and the model gets the shield in the menu (hover it for
+τ, min_p, recall and false-abstention rate). Models not calibrated yet use the research values.
+
+Runs are resumable (answers cached in `checkpoints/calibration/cache/`): stop with Ctrl+C and run the same
+command again. On a GTX 1650 a 1–4B model takes about 30–60 min; reasoning models (qwen3, deepseek-r1) take
+several hours, so they run last. `--limit 20` does a quick smoke test (saved under `partial/`, not used).
 
 ## API additions
 

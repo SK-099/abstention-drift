@@ -65,6 +65,11 @@ CLARIFY_PROMPT = (
 STREAM_TOKENS: contextvars.ContextVar[bool] = contextvars.ContextVar("stream_tokens", default=False)
 
 
+# Optional per-request (tau, self_check_min_p) override. The web service sets it to the thresholds calibrated
+# for the model the user picked; research runs never set it and use the values given to the constructor.
+THRESHOLDS: contextvars.ContextVar[tuple[float, float] | None] = contextvars.ContextVar("thresholds", default=None)
+
+
 @contextmanager
 def streaming_tokens():
     tok = STREAM_TOKENS.set(True)
@@ -198,12 +203,12 @@ class AbstentionAgent:
         from langgraph.graph import END, StateGraph
 
         self.llm, self.retriever, self.gate = llm, retriever, gate
-        self.threshold = threshold if threshold is not None else getattr(gate, "threshold", 1.0)
+        self._threshold = threshold if threshold is not None else getattr(gate, "threshold", 1.0)
         self.max_retries, self.self_check, self.clarify = max_retries, self_check, clarify
         self.clarify_min_turn = clarify_min_turn   # ask clarifying questions only from this user turn on
         # selective self-check: only verify answers whose evidence the gate already doubts (p >= min_p);
         # a 3B judge rejects most answers, so checking every answer causes heavy over-refusal
-        self.self_check_min_p = self_check_min_p
+        self._min_p = self_check_min_p
         self.rw_kw, self.gen_kw = rewrite_kwargs or {}, gen_kwargs or {}
         self.rewriter = QueryRewriter("llm", llm=llm, **self.rw_kw)
 
@@ -222,6 +227,25 @@ class AbstentionAgent:
         g.add_conditional_edges("retry", self._after_retry, {"again": "rewrite", "give_up": "clarify_or_abstain"})
         g.add_edge("clarify_or_abstain", END)
         self.graph = g.compile(checkpointer=checkpointer)
+
+    # -- thresholds (per request when THRESHOLDS is set)
+    @property
+    def threshold(self) -> float:
+        ov = THRESHOLDS.get()
+        return ov[0] if ov is not None else self._threshold
+
+    @threshold.setter
+    def threshold(self, v: float) -> None:
+        self._threshold = v
+
+    @property
+    def self_check_min_p(self) -> float:
+        ov = THRESHOLDS.get()
+        return ov[1] if ov is not None else self._min_p
+
+    @self_check_min_p.setter
+    def self_check_min_p(self, v: float) -> None:
+        self._min_p = v
 
     # -- helpers
     def _cached(self, s: AgentState, key: str):

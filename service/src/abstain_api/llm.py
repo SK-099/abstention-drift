@@ -77,7 +77,10 @@ class OpenAICompatChat:
                 model=self.model,
                 base_url=self.base_url,
                 api_key=self.api_key,
-                timeout=self.s.llm_timeout_s,
+                # thinking first takes minutes on a small GPU
+                timeout=max(self.s.llm_timeout_s, self.s.reasoning_timeout_s)
+                if self.reasoning
+                else self.s.llm_timeout_s,
                 max_retries=0,
                 extra_body={self.max_tokens_field: n},
                 default_headers=headers,
