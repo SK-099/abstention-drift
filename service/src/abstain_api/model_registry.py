@@ -139,6 +139,22 @@ def _get(url: str, headers: dict, timeout: float = 15.0):
     return r.json()
 
 
+def ollama_tags(base: str, attempts: int = 3) -> dict:
+    """Ollama's installed models. Ollama can be slow to answer while it loads a model, so retry."""
+    for i in range(attempts):
+        try:
+            return _get(f"{base}/api/tags", {}, timeout=15.0)
+        except Exception:
+            if i == attempts - 1:
+                raise
+            time.sleep(2.0)
+    return {}
+
+
+def ollama_base(s: Settings) -> str:
+    return (s.ollama_url or re.sub(r"/v1/?$", "", s.llm_base_url)).rstrip("/")
+
+
 def _list_local(s: Settings, p: Provider) -> list[ModelInfo]:
     calibrated = ModelInfo(
         id=f"local:{s.llm_model}",
@@ -151,9 +167,9 @@ def _list_local(s: Settings, p: Provider) -> list[ModelInfo]:
         description="Research model",
     )
     out = {calibrated.id: calibrated}
-    base = (s.ollama_url or re.sub(r"/v1/?$", "", s.llm_base_url)).rstrip("/")
+    base = ollama_base(s)
     try:
-        data = _get(f"{base}/api/tags", {}, timeout=5.0)
+        data = ollama_tags(base)
         for m in data.get("models", []):
             name = m.get("name") or m.get("model")
             if not name or _SKIP.search(name):
@@ -171,8 +187,8 @@ def _list_local(s: Settings, p: Provider) -> list[ModelInfo]:
             for m in data.get("data", []):
                 mid = f"local:{m['id']}"
                 out.setdefault(mid, ModelInfo(mid, "local", p.label, m["id"], m["id"], reasoning=is_reasoning(m["id"])))
-        except Exception:
-            log.info("local model discovery failed; listing only %s", s.llm_model)
+        except Exception as e:
+            log.warning("local model discovery failed (%s); listing only %s", e, s.llm_model)
     return list(out.values())
 
 

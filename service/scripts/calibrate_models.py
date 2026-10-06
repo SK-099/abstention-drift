@@ -52,7 +52,7 @@ from abstain.generate import generate_answer
 from abstain.idk import is_idk
 from abstain_api.calibration import slug
 from abstain_api.llm import RoutingChat
-from abstain_api.model_registry import ModelRegistry, default_model_id, is_reasoning, split_id
+from abstain_api.model_registry import default_model_id, is_reasoning, split_id
 from abstain_api.settings import get_settings
 
 PROCEDURE = "joint (tau, min_p) grid on MTRAG checker dev; max F1 s.t. FA <= own refusal FA + budget"
@@ -215,8 +215,17 @@ def main() -> None:
         scores = gate_scores(s, dev, out, Path(a.research_cache))
 
         if a.models == ["all"]:
-            reg = ModelRegistry(s)
-            ids = [m.id for m in reg.list() if m.provider == "local"]
+            from abstain_api.model_registry import _SKIP, ollama_base, ollama_tags
+
+            try:
+                tags = ollama_tags(ollama_base(s))
+            except Exception as e:
+                sys.exit(
+                    f"could not list the Ollama models at {ollama_base(s)}/api/tags ({e}).\n"
+                    "Is Ollama running (`ollama list`)? Or name the models: --models llama3.2:3b gemma3:4b ..."
+                )
+            names = [m.get("name") or m.get("model") for m in tags.get("models", [])]
+            ids = [research_id] + [f"local:{n}" for n in names if n and not _SKIP.search(n)]
         else:
             ids = [
                 m
