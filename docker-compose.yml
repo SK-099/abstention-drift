@@ -75,7 +75,7 @@ services:
     volumes:
       - ./checkpoints:/app/checkpoints             # writable: results go to checkpoints/calibration/
       - ./outputs:/app/outputs:ro                  # checker_dev.jsonl + the research model's cached answers
-      - ./data/mt-rag-benchmark:/app/data/mt-rag-benchmark:ro
+      - ./data/mt-rag-benchmark:/data/mt-rag-benchmark:ro   # = MTRAG_DIR set in the image
       - app-data:/data
 
   web:                                             # Next.js notebook UI: http://localhost:3000
