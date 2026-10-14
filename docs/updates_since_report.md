@@ -71,3 +71,39 @@ The previous `CS683_Project_Report` and `CS683_Project_Presentation` covered the
   - the conclusion footer (production service; new future work)
 
 All other slides are unchanged.
+
+---
+
+# Update of 15 October 2026: the notebook application
+
+## What was added to the project
+
+- **Model menu grouped by ability.** Standard models (answer directly) and thinking models (reason first), with
+  size, measured speed per answer and a shield for calibrated models. `phi4-mini` and `phi4-mini:latest` count
+  as one model.
+- **Per-model refusal thresholds.** `docker compose run --rm calibrate` chooses τ and min_p for every model on
+  the 224 MTRAG dev examples; ten local models are calibrated (Qwen3-4B was removed: about seven minutes per
+  answer on the 4 GB GPU). The service applies each model's own thresholds.
+- **Phase 2, sources:** web pages, YouTube transcripts (timestamped sections), pasted text; a source guide
+  (summary, topics, suggested questions) for every source; "summarise my sources"-type questions answered from
+  the guides with one citation per source.
+- **Phases 3–4, Studio:** briefing doc, study guide, FAQ, timeline, interactive mind map, flashcards, quiz, and an
+  audio overview (two hosts, spoken by Kokoro; `docker compose --profile tts up -d kokoro`).
+- **Phase 5:** sharing (viewer / editor / anyone with the link) and "discover sources" web search.
+- Service tests: 32 → 49. Migrations 0003–0005.
+
+## Changes to the report (now 57 pages)
+
+- **New Chapter 11, "Notebook Application: A NotebookLM-Style Front End"**: motivation, features table and
+  screenshot, architecture figure, sources beyond files (with the SSRF protection), source guides and
+  notebook-wide questions, Studio outputs (table and mind-map screenshot), the audio overview, choosing the model
+  (model-menu screenshot), **per-model refusal thresholds (Table 11.3, ten models)**, testing and a summary.
+- Later chapters renumbered (Error Analysis is now Chapter 12, Conclusion Chapter 16).
+- Updated: abstract, summary of outcomes, report organisation, Chapter 10 (front end now described), limitations,
+  future work and conclusion.
+
+## Changes to the presentation (now 36 slides)
+
+- **Five new slides after "Uploads: one question, three chunking versions":** A NotebookLM-style notebook; The
+  Studio; Choose any model; Refusal thresholds for every model; Sharing, safety and testing.
+- Updated: agenda item 4, the service slide footer and the conclusion footer.

@@ -203,7 +203,7 @@ export default function ChatMessage({
           {steps.length > 0 && (
             <button onClick={() => setShowSteps((s) => !s)} className="inline-flex items-center gap-1 text-xs text-muted hover:text-ink">
               {showSteps ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-              How I got this ({steps.length} steps{f?.attempts ? `, searched again ${f.attempts}×` : ""})
+              How I got this ({steps.length} step{steps.length === 1 ? "" : "s"}{f?.attempts ? `, searched again ${f.attempts}×` : ""})
             </button>
           )}
           {m.model && <span className="text-xs text-muted">{modelLabel(m.model)}</span>}

@@ -112,11 +112,12 @@ Modal/RunPod) and the release process.
 
 ### Notebook UI (NotebookLM-style)
 
-`web/` is a Next.js front end at http://localhost:3000: notebooks with sources (tick which ones answers may
-use), streamed chat with clickable citations that open the cited passage (page and section), an evidence
-meter and the agent's steps, a **model picker like ChatGPT / Claude.ai** (local Ollama models plus every
-model of each provider whose API key is set, e.g. one `OPENROUTER_API_KEY` for Claude, GPT, Gemini, Llama,
-Qwen, DeepSeek), feedback, and notes. See [docs/notebook_ui.md](docs/notebook_ui.md). Without Docker or
+`web/` is a Next.js front end at http://localhost:3000 that works like Google NotebookLM: sources (files,
+web pages, YouTube transcripts, pasted text, web search) with source guides; streamed, cited chat that says
+when the sources do not contain the answer; a Studio with audio overviews (Kokoro voices), briefing docs,
+study guides, FAQs, timelines, mind maps, flashcards and quizzes; notes; sharing (viewer / editor / link);
+and a **model picker like ChatGPT / Claude.ai** grouped into standard and thinking models, with refusal
+thresholds calibrated per model (`docker compose run --rm calibrate`). See [docs/notebook_ui.md](docs/notebook_ui.md). Without Docker or
 models: `python service/scripts/demo_api.py` and `cd web && npm install && npm run dev`.
 
 ## Repository layout

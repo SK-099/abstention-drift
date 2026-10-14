@@ -1,13 +1,15 @@
-# Notebook UI (NotebookLM-style) — phase 1
+# Notebook UI (NotebookLM-style)
 
-The `web/` folder is a Next.js 16 front end for the service, modelled on Google NotebookLM:
+The `web/` folder is a Next.js 16 front end for the service, modelled on Google NotebookLM. All five
+phases are built:
 
 | Panel | What it does |
 | --- | --- |
-| **Sources** | Upload PDF, DOCX, HTML, Markdown and text files (button or drag and drop). Tick which sources answers may use; untick to leave a source out. Click a source to read it, by section and page. |
-| **Chat** | Streamed answers, grounded in the ticked sources. Citation chips show file, page and section; clicking one opens the source viewer at the cited passage, highlighted. Each answer shows an **evidence meter** (1 − P(unanswerable) from the answerability gate), "How I got this" (the agent's steps, searches and retries), the model used, save-to-notes, copy, 👍/👎 with a reason. Refusals are labelled "Not in your sources". Past chats are kept per notebook. |
-| **Studio** | Notes (write your own or save answers with their citations; pin, edit in Markdown). Audio overview, guides, mind map, flashcards and quiz are added in the next phases. |
-| **Model picker** | Like ChatGPT / Claude.ai: a searchable menu of every available model, grouped by provider with a "Recommended" section. The choice is remembered in the browser and sent with every message. |
+| **Sources** | Add PDF, Word, HTML, Markdown and text files, **web pages**, **YouTube videos** (their transcript, in two-minute timestamped sections) and **pasted text**, or **discover** sources with a web search. Tick which sources answers may use. Each source gets a **source guide**: a summary, key topics and suggested questions you can click to ask. Click a source to read it by section and page. |
+| **Chat** | Streamed answers grounded in the ticked sources, with citation chips (file, page, section; YouTube citations open the video at the cited minute), an **evidence meter**, "How I got this", the model used, save-to-notes, copy and feedback. Refusals are labelled "Not in your sources". Questions about the whole notebook ("summarise my sources", "what are the main themes?") are answered from the source guides and cite each source. |
+| **Studio** | **Audio overview** (two hosts discuss your sources, spoken by Kokoro), **briefing doc**, **study guide**, **FAQ**, **timeline**, **mind map** (fold branches, click a topic to ask about it), **flashcards** (flip, shuffle) and **quiz** (scored, with explanations). Everything cites its sources, can be copied or downloaded as Markdown, and works on the ticked sources with optional instructions ("for beginners"). Plus notes. |
+| **Model picker** | Like ChatGPT / Claude.ai: every available model, grouped by ability into **Standard models** (answer directly, faster) and **Thinking models** (reason first, slower), with size, speed per answer and a shield for models whose refusal thresholds were calibrated. |
+| **Sharing** | Share a notebook by e-mail or user id as **viewer** (read, chat) or **editor** (also add sources, generate), or with anyone signed in who has the link. Chats and notes stay private. Notebooks shared with you appear under "Shared with me". |
 
 ## Choosing models
 
@@ -82,11 +84,35 @@ several hours, so they run last. `--limit 20` does a quick smoke test (saved und
 
 ## API additions
 
-`GET /models`, `POST /chat/stream` with `model` and `document_ids`, `GET /conversations?collection=…`,
-`DELETE /conversations/{id}`, `PATCH`/`DELETE /collections/{id}`,
-`GET /collections/{id}/documents/{doc}/passages` (source viewer), `…/file` (original file),
-`DELETE …/documents/{doc}`, and `/collections/{id}/notes` (CRUD). Citations now carry `source_document`,
-`page` and `section`. Migration `0002` adds the `notes` table.
+| Endpoint | Purpose |
+| --- | --- |
+| `GET /models` | the model menu (with calibration, speed, ability) |
+| `POST /chat/stream` + `model`, `document_ids` | the chosen model, only the ticked sources |
+| `POST /collections/{id}/sources` | `{"type": "url" \| "youtube" \| "text", ...}`; pages are fetched by the worker, never from private addresses |
+| `POST /collections/{id}/documents/{doc}/guide` | write the source guide again |
+| `GET …/documents/{doc}/passages`, `…/file` | source viewer, original file (served as a download with a sandbox CSP) |
+| `/collections/{id}/studio` | `POST {"kind": "briefing" \| "study_guide" \| "faq" \| "timeline" \| "mindmap" \| "flashcards" \| "quiz" \| "audio"}`, list, get, delete; `…/{aid}/audio` (WAV), `…/{aid}/speak` |
+| `GET /collections/{id}` | one notebook with the caller's role |
+| `/collections/{id}/sharing` | `GET`, `PATCH {"link_access"}`, `PUT /members {"principal", "role"}`, `DELETE /members/{principal}` |
+| `POST /collections/{id}/discover` | web search for a topic |
+| `/collections/{id}/notes`, `/conversations?collection=` | notes, chats per notebook |
+
+Migrations: `0002` notes, `0003` source types and guides, `0004` Studio outputs, `0005` sharing.
+
+## Settings
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `GENERATION_MODEL` | `DEFAULT_MODEL` | model for source guides and Studio outputs (the Studio uses the model chosen in the menu) |
+| `SOURCE_GUIDES` | `true` | write a guide for every new source (one LLM call) |
+| `TTS_URL` | `http://kokoro:8880` in Docker | Kokoro-FastAPI; start it with `docker compose --profile tts up -d kokoro` |
+| `TTS_VOICE_A`, `TTS_VOICE_B` | `af_heart`, `am_michael` | voices of the two hosts |
+| `SEARCH_PROVIDER` | `duckduckgo` | `duckduckgo` (no key), `tavily` / `brave` (`SEARCH_API_KEY`), `searxng` (`SEARXNG_URL`) or `off` |
+| `ALLOW_PRIVATE_URLS` | `false` | allow web sources on private networks (only for a trusted, local setup) |
+| `NOTEBOOK_CONTEXT_CHARS`, `GUIDE_CHARS` | 7000, 6000 | how much source text one generation prompt gets (fits a 4k context) |
+
+With a 3B local model a source guide takes about half a minute and a Studio output one to two minutes;
+the audio overview adds about as long again for speech on the CPU. Bigger models write better outputs.
 
 ## Running
 
@@ -101,10 +127,11 @@ python service/scripts/demo_api.py      # API on :8000
 cd web && npm install && npm run dev    # UI on :3000
 ```
 
-## Next phases
+## Audio overviews (Kokoro)
 
-2. Web pages, YouTube transcripts and pasted text as sources; a source guide (summary, topics, suggested
-   questions) per upload; whole-notebook questions ("summarise my sources") routed to document summaries.
-3. Studio: briefing doc, study guide, FAQ, timeline, flashcards, quiz, mind map.
-4. Audio overview: two-host podcast script, Kokoro text-to-speech.
-5. Sharing notebooks; "discover sources" web search.
+```powershell
+docker compose --profile tts up -d kokoro   # first start downloads the image (~2-3 GB)
+```
+
+Then press **Audio overview** in the Studio. If the voice service is not running, the script is still
+written and shown; press **Speak again** once Kokoro is up.
