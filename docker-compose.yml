@@ -23,6 +23,7 @@ x-app: &app
     REDIS_URL: redis://redis:6379/0
     QDRANT_URL: http://qdrant:6333
     LANGFUSE_HOST: http://langfuse-web:3000
+    TTS_URL: ${TTS_URL:-http://kokoro:8880}       # audio overviews (docker compose --profile tts up -d kokoro)
   extra_hosts: ["host.docker.internal:host-gateway"]
   volumes:
     - ./checkpoints:/app/checkpoints:ro          # fine-tuned checker (threshold.json) + self_check.json
@@ -77,6 +78,12 @@ services:
       - ./outputs:/app/outputs:ro                  # checker_dev.jsonl + the research model's cached answers
       - ./data/mt-rag-benchmark:/data/mt-rag-benchmark:ro   # = MTRAG_DIR set in the image
       - app-data:/data
+
+  kokoro:                                          # text-to-speech for audio overviews (Kokoro-82M, CPU)
+    image: ghcr.io/remsky/kokoro-fastapi-cpu:${KOKORO_TAG:-latest}
+    profiles: [tts]                                #   docker compose --profile tts up -d kokoro
+    ports: ["8880:8880"]
+    restart: unless-stopped
 
   web:                                             # Next.js notebook UI: http://localhost:3000
     build:

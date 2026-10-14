@@ -82,11 +82,62 @@ class FakeGate:
         return 1.0 - max((p.get("score", 0.0) for p in passages), default=0.0)
 
 
+DEMO_STUDIO = {
+    "briefing document": (
+        "## Executive summary\nThe notebook covers ferry services to Helgoland and Hamburg's tram network [1][2]. "
+        "Both run frequent, cheap services with seasonal changes [1].\n## Key points\n"
+        "- The Helgoland ferry leaves Cuxhaven at 10:30 from April to October [1]\n"
+        "- The crossing takes about 2 h 15 min [1]\n- Tram line 9 runs every eight minutes [2]\n"
+        "- Night buses replace trams between midnight and 5 am [2]\n## Important details\n"
+        "- Adult ferry tickets cost 55 euros; children 30 euros [1]\n- A tram day ticket costs 8 euros [2]\n"
+        "## Open questions\n- Are there combined ferry and tram tickets?\n- How busy is the ferry in August?"
+    ),
+    "study guide": (
+        "## Key concepts\n- **Catamaran** - the fast boat used for the Helgoland crossing [1]\n"
+        "- **Day ticket** - unlimited tram travel for 8 euros [2]\n## Short-answer questions\n"
+        "1. When does the ferry leave Cuxhaven?\n2. How often does tram line 9 run on Sundays?\n## Answer key\n"
+        "1. At 10:30 [1]\n2. Every fifteen minutes [2]\n## Essay questions\n1. Compare the two services."
+    ),
+    "frequently asked": (
+        "Q: When does the ferry to Helgoland leave?\nA: At 10:30 every morning from April to October [1].\n"
+        "Q: How long is the crossing?\nA: About two hours and fifteen minutes [1].\n"
+        "Q: How often does tram line 9 run?\nA: Every eight minutes, every fifteen on Sundays [2].\n"
+        "Q: Do children pay on trams?\nA: Children under six travel free [2]."
+    ),
+    "chronological": "1891 | The lighthouse on the north pier is built [1]\nApril | The summer ferry season starts [1]\n"
+    "October | The summer timetable ends [1]",
+    "mind map": (
+        "- Travel in northern Germany\n  - Helgoland ferry\n    - Leaves 10:30\n    - 2 h 15 min crossing\n"
+        "    - 55 euro tickets\n  - Hamburg trams\n    - Line 9 every 8 min\n    - Night buses\n"
+        "    - Day ticket 8 euros\n  - Seasons\n    - Summer timetable\n    - Winter: 3 days a week"
+    ),
+    "flashcards": (
+        "Q: Ferry departure time | A: 10:30 [1]\nQ: Crossing time to Helgoland | A: About 2 h 15 min [1]\n"
+        "Q: Tram line 9 frequency | A: Every 8 minutes [2]\nQ: Price of a tram day ticket | A: 8 euros [2]"
+    ),
+    "multiple-choice": (
+        "Q: When does the ferry leave Cuxhaven?\nA) 8:00\nB) 10:30\nC) 12:15\nD) 15:00\nANSWER: B\n"
+        "WHY: The timetable says 10:30 every morning [1]\n\nQ: What replaces trams at night?\nA) Ferries\n"
+        "B) Taxis\nC) Night buses\nD) Nothing\nANSWER: C\nWHY: Night buses run from midnight to 5 am [2]"
+    ),
+    "podcast": (
+        "ALEX: Welcome back! Today we're looking at getting around northern Germany.\n"
+        "SAM: Ferries and trams, right? Where do we start?\n"
+        "ALEX: With the Helgoland ferry. It leaves Cuxhaven at half past ten every morning in summer.\n"
+        "SAM: And how long is the trip?\nALEX: About two hours and fifteen minutes.\n"
+        "SAM: Then in Hamburg, tram line nine comes every eight minutes.\nALEX: That's our recap. See you next time!"
+    ),
+}
+
+
 class FakeLLM:
     """Rewrite = the question; answer = the best sentence of passage [1] with a [1] citation."""
 
     def chat(self, messages, max_new_tokens=None):
         sys_, user = messages[0]["content"], messages[-1]["content"]
+        if "study and briefing material" in sys_:
+            task = user.split("Task:", 1)[-1]
+            return next((v for k, v in DEMO_STUDIO.items() if k in task), "nothing")
         if "short guides to documents" in sys_:
             return self._guide(user)
         if "summaries given" in sys_:

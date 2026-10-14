@@ -189,7 +189,15 @@ export default function NotebookView({ notebookId }: { notebookId: string }) {
           )}
         </section>
         <section className={`${panel} ${tab === "studio" ? "" : "hidden"} lg:block`}>
-          <StudioPanel notebookId={notebookId} refreshKey={notesKey} onCite={openCitation} />
+          <StudioPanel
+            notebookId={notebookId}
+            refreshKey={notesKey}
+            onCite={openCitation}
+            onAsk={askQuestion}
+            documentIds={documentIds}
+            builtin={builtin}
+            hasSources={indexed.length > 0}
+          />
         </section>
       </div>
     </div>

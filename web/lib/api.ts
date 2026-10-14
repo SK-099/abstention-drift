@@ -28,6 +28,37 @@ export type SourceDoc = {
 
 export type SourceGuide = { summary: string; topics: string[]; questions: string[] };
 
+export type ArtifactKind = "briefing" | "study_guide" | "faq" | "timeline" | "mindmap" | "flashcards" | "quiz" | "audio";
+
+export type MindNode = { label: string; children: MindNode[] };
+
+export type Artifact = {
+  id: string;
+  collection_id: string;
+  kind: ArtifactKind;
+  title: string;
+  status: "pending" | "running" | "ready" | "failed";
+  content: string;
+  data: {
+    sources?: { index: number; document_id: string; title: string }[];
+    items?: { q: string; a: string }[];
+    events?: { date: string; event: string; sources: number[] }[];
+    cards?: { front: string; back: string; sources: number[] }[];
+    questions?: { question: string; options: string[]; answer: number; why: string; sources: number[] }[];
+    tree?: MindNode;
+    turns?: { speaker: "ALEX" | "SAM"; text: string }[];
+    audio?: boolean;
+    audio_error?: string | null;
+    duration_s?: number;
+  };
+  document_ids: string[];
+  model: string | null;
+  instructions: string | null;
+  error: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type NewSource =
   | { type: "url"; url: string; title?: string }
   | { type: "youtube"; url: string; title?: string }
@@ -182,6 +213,20 @@ export const api = {
     req<SourceDoc>(`/collections/${nb}/sources`, { method: "POST", body: JSON.stringify(body) }),
   regenerateGuide: (nb: string, doc: string) =>
     req<SourceDoc>(`/collections/${nb}/documents/${doc}/guide`, { method: "POST" }),
+  studio: (nb: string) => req<Artifact[]>(`/collections/${nb}/studio`),
+  createArtifact: (
+    nb: string,
+    body: { kind: ArtifactKind; document_ids?: string[]; model?: string; instructions?: string },
+  ) => req<Artifact>(`/collections/${nb}/studio`, { method: "POST", body: JSON.stringify(body) }),
+  artifact: (nb: string, id: string) => req<Artifact>(`/collections/${nb}/studio/${id}`),
+  deleteArtifact: (nb: string, id: string) => req<void>(`/collections/${nb}/studio/${id}`, { method: "DELETE" }),
+  speak: (nb: string, id: string) => req<Artifact>(`/collections/${nb}/studio/${id}/speak`, { method: "POST" }),
+  /** the audio file as an object URL (fetched with the auth header) */
+  audioBlobUrl: async (nb: string, id: string) => {
+    const r = await fetch(`${API_URL}/collections/${nb}/studio/${id}/audio`, { headers: authHeaders() });
+    if (!r.ok) throw new ApiError(r.status, r.statusText);
+    return URL.createObjectURL(await r.blob());
+  },
   deleteSource: (nb: string, doc: string) => req<void>(`/collections/${nb}/documents/${doc}`, { method: "DELETE" }),
   passages: (nb: string, doc: string) => req<Passage[]>(`/collections/${nb}/documents/${doc}/passages`),
   fileUrl: (nb: string, doc: string) => `${API_URL}/collections/${nb}/documents/${doc}/file`,

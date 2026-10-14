@@ -77,6 +77,28 @@ def source_guide_task(doc_id: str) -> dict:
         return {"id": doc_id, "guide_status": doc.guide_status if doc else None}
 
 
+@celery_app.task(name="abstain.studio", max_retries=0)
+def studio_task(artifact_id: str) -> dict:
+    """One Studio output (briefing doc, study guide, FAQ, timeline, mind map, flashcards, quiz, audio)."""
+    from .db import sync_sessionmaker
+    from .studio import generate_artifact
+
+    with sync_sessionmaker()() as session:
+        a = generate_artifact(session, artifact_id, get_settings())
+        return {"id": artifact_id, "status": a.status}
+
+
+@celery_app.task(name="abstain.speak", max_retries=0)
+def speak_task(artifact_id: str) -> dict:
+    """Speak an audio overview's script again (e.g. after starting the voice service)."""
+    from .db import sync_sessionmaker
+    from .studio import respeak
+
+    with sync_sessionmaker()() as session:
+        a = respeak(session, artifact_id, get_settings())
+        return {"id": artifact_id, "audio": bool(a and a.data.get("audio"))}
+
+
 @celery_app.task(name="abstain.nightly_eval")
 def nightly_eval_task(limit: int | None = None) -> dict:
     from .db import sync_sessionmaker

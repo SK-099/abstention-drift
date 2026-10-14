@@ -197,3 +197,27 @@ class ModelsOut(BaseModel):
     default: str
     models: list[ModelOut]
     providers: list[dict]
+
+
+class ArtifactIn(BaseModel):
+    kind: Literal["briefing", "study_guide", "faq", "timeline", "mindmap", "flashcards", "quiz", "audio"]
+    document_ids: list[str] | None = Field(default=None, max_length=500, description="ticked sources (default: all)")
+    model: str | None = Field(default=None, max_length=200)
+    instructions: str | None = Field(default=None, max_length=500, description="e.g. 'focus on the methods'")
+
+
+class ArtifactOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    collection_id: str
+    kind: str
+    title: str
+    status: str
+    content: str
+    data: dict
+    document_ids: list
+    model: str | None
+    instructions: str | None
+    error: str | None
+    created_at: datetime
+    updated_at: datetime

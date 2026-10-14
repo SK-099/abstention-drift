@@ -87,6 +87,8 @@ class FakeLLM:
     def chat(self, messages, max_new_tokens=None):
         sys_, user = messages[0]["content"], messages[-1]["content"]
         self.calls.append(sys_[:30])
+        if "study and briefing material" in sys_:
+            return fake_studio(user)
         if "short guides to documents" in sys_:
             first = re.sub(r"\s+", " ", user.split("\n\n", 1)[-1])[:160]
             return f"SUMMARY: The document says: {first}\nTOPICS: travel; timetables; ferries\nQUESTIONS:\n- When does it leave?\n- Where does it go?\n- How often does it run?"
@@ -111,6 +113,26 @@ class FakeLLM:
             for tok in ans.split(" "):
                 w({"type": "token", "text": tok + " "})
         return ans
+
+
+STUDIO_REPLIES = {
+    "briefing document": "## Executive summary\nFerries and trams [1].\n## Key points\n- The ferry leaves at 10:30 [1]",
+    "study guide": "## Key concepts\n- **Ferry** - a boat [1]\n## Short-answer questions\n1. When? [1]",
+    "frequently asked": "Q: When does the ferry leave?\nA: At 10:30 [1].\n\n**Q: How long is the trip?**\nA: About two hours [1].",
+    "chronological": "1891 | The lighthouse was built [1]\n- 2020 | The terminal opened [2]\nnot an event",
+    "mind map": "- Travel\n  - Ferries\n    - Leaves 10:30\n    - 55 euros\n  - Trams\n    - Line 9",
+    "flashcards": "Q: Ferry departure | A: 10:30 [1]\n2. Q: Tram line | A: 9 [2]\nnoise",
+    "multiple-choice": (
+        "Q1: When does the ferry leave?\nA) 9:00\nB) 10:30\nC) 12:00\nD) 14:00\nANSWER: B\nWHY: The timetable [1]\n\n"
+        "Q2: Broken question without answer\nA) x\nB) y\n"
+    ),
+    "podcast": "ALEX: Welcome! Today: ferries.\nSAM: When do they leave? (laughs)\n**ALEX:** At 10:30 [1].\nnarrator: x",
+}
+
+
+def fake_studio(user: str) -> str:
+    task = user.split("Task:", 1)[-1]
+    return next((v for k, v in STUDIO_REPLIES.items() if k in task), "nothing")
 
 
 def token(sub="alice", **claims):

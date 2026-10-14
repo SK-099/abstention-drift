@@ -124,3 +124,24 @@ class EvalRun(Base):
     passed: Mapped[bool | None] = mapped_column(Boolean)
     versions: Mapped[dict] = mapped_column(JSON, default=dict)  # model, prompt version, thresholds
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, index=True)
+
+
+class Artifact(Base):
+    """A Studio output generated from a notebook's sources: briefing doc, study guide, FAQ, timeline, mind map,
+    flashcards, quiz or audio overview (two-host conversation spoken with Kokoro)."""
+
+    __tablename__ = "artifacts"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    collection_id: Mapped[str] = mapped_column(ForeignKey("collections.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    kind: Mapped[str] = mapped_column(String(20))
+    title: Mapped[str] = mapped_column(String(300), default="")
+    status: Mapped[str] = mapped_column(String(20), default="pending")  # pending | running | ready | failed
+    content: Mapped[str] = mapped_column(Text, default="")  # markdown (or the audio script)
+    data: Mapped[dict] = mapped_column(JSON, default=dict)  # structured: cards, questions, tree, sources, audio
+    document_ids: Mapped[list] = mapped_column(JSON, default=list)
+    model: Mapped[str | None] = mapped_column(String(200))
+    instructions: Mapped[str | None] = mapped_column(Text)
+    error: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, onupdate=now)

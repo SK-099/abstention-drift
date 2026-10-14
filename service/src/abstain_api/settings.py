@@ -121,6 +121,12 @@ class Settings(BaseSettings):
     notebook_context_chars: int = 7000  # material per Studio / overview prompt
     fetch_timeout_s: float = 20.0  # web pages and YouTube transcripts
     allow_private_urls: bool = False  # never fetch localhost / private network addresses (SSRF)
+    tts_url: str | None = None  # Kokoro-FastAPI (OpenAI-compatible /v1/audio/speech), e.g. http://kokoro:8880
+    tts_voice_a: str = "af_heart"  # host "Alex"
+    tts_voice_b: str = "am_michael"  # host "Sam"
+    tts_speed: float = 1.0
+    tts_sample_rate: int = 24000  # Kokoro's output rate (raw PCM is requested)
+    tts_timeout_s: float = 300.0
     generation_model: str | None = None  # model for guides / Studio / audio scripts (default: DEFAULT_MODEL)
 
     # --- observability
