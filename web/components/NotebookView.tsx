@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, BookOpen, MessageSquare, Sparkles } from "lucide-react";
+import { ArrowLeft, BookOpen, MessageSquare, Share2, Sparkles } from "lucide-react";
 import { api, Citation, Notebook, SourceDoc } from "@/lib/api";
 import ChatPanel from "./ChatPanel";
+import ShareDialog from "./ShareDialog";
 import SourcesPanel from "./SourcesPanel";
 import SourceViewer from "./SourceViewer";
 import StudioPanel from "./StudioPanel";
@@ -29,14 +30,12 @@ export default function NotebookView({ notebookId }: { notebookId: string }) {
 
   useEffect(() => {
     api
-      .notebooks()
-      .then((all) => {
-        const found = all.find((n) => n.id === notebookId) || null;
+      .notebook(notebookId)
+      .then((found) => {
         setNb(found);
-        setTitle(found?.name || "");
-        if (!found) setError("Notebook not found");
+        setTitle(found.name);
       })
-      .catch((e) => setError(e.message));
+      .catch((e) => setError(e.status === 404 ? "Notebook not found, or it is not shared with you" : e.message));
   }, [notebookId]);
 
   const loadSources = useCallback(async () => {
@@ -68,6 +67,8 @@ export default function NotebookView({ notebookId }: { notebookId: string }) {
   }, [pending, loadSources]);
 
   const builtin = !!nb?.is_public;
+  const canEdit = !builtin && (nb?.role === "owner" || nb?.role === "editor");
+  const [sharing, setSharing] = useState(false);
   const indexed = sources.filter((s) => s.status === "indexed");
   const documentIds = useMemo(() => (builtin ? null : [...selected]), [builtin, selected]);
   // chat suggestions from the source guides of the ticked sources (like NotebookLM)
@@ -116,8 +117,8 @@ export default function NotebookView({ notebookId }: { notebookId: string }) {
         <div className="flex h-8 w-8 items-center justify-center rounded-full bg-accent-soft text-accent">
           <BookOpen size={16} />
         </div>
-        {builtin ? (
-          <h1 className="truncate text-lg font-semibold">{nb?.name}</h1>
+        {builtin || !canEdit ? (
+          <h1 className="min-w-0 flex-1 truncate text-lg font-semibold">{nb?.name}</h1>
         ) : (
           <input
             value={title}
@@ -128,6 +129,21 @@ export default function NotebookView({ notebookId }: { notebookId: string }) {
             title="Rename notebook"
           />
         )}
+        {nb && !builtin && nb.role === "viewer" && (
+          <span className="rounded-full border border-line px-2 py-0.5 text-xs text-muted">View only</span>
+        )}
+        {nb && !builtin && nb.role === "editor" && (
+          <span className="rounded-full border border-line px-2 py-0.5 text-xs text-muted">Shared with you · editor</span>
+        )}
+        {nb && nb.role === "owner" && !builtin && (
+          <button
+            onClick={() => setSharing(true)}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-panel px-3 py-1.5 text-sm hover:bg-panel-2"
+          >
+            <Share2 size={15} /> Share
+          </button>
+        )}
+        {sharing && nb && <ShareDialog notebookId={nb.id} name={nb.name} onClose={() => setSharing(false)} />}
       </header>
 
       <nav className="flex gap-1 px-4 pb-2 lg:hidden">
@@ -157,7 +173,7 @@ export default function NotebookView({ notebookId }: { notebookId: string }) {
               passageId={viewing.passageId}
               onBack={() => setViewing(null)}
               onAsk={askQuestion}
-              canEdit={!builtin}
+              canEdit={canEdit}
               onChanged={loadSources}
             />
           ) : (
@@ -169,7 +185,7 @@ export default function NotebookView({ notebookId }: { notebookId: string }) {
               setSelected={setSelected}
               onChanged={loadSources}
               onOpen={(doc) => setViewing({ doc, passageId: null })}
-              canEdit={!builtin}
+              canEdit={canEdit}
             />
           )}
         </section>
@@ -196,6 +212,7 @@ export default function NotebookView({ notebookId }: { notebookId: string }) {
             onAsk={askQuestion}
             documentIds={documentIds}
             builtin={builtin}
+            canEdit={canEdit}
             hasSources={indexed.length > 0}
           />
         </section>

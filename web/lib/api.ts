@@ -8,7 +8,18 @@ export type Notebook = {
   description: string | null;
   is_public: boolean;
   created_at: string;
+  role?: "owner" | "editor" | "viewer" | "public" | null;
+  link_access?: "none" | "viewer";
+  shared?: boolean;
 };
+
+export type Sharing = {
+  link_access: "none" | "viewer";
+  owner: string | null;
+  members: { principal: string; role: "viewer" | "editor" }[];
+};
+
+export type DiscoverHit = { title: string; url: string; snippet: string; kind: "url" | "youtube" };
 
 export type SourceDoc = {
   id: string;
@@ -199,6 +210,16 @@ export const api = {
   notebooks: () => req<Notebook[]>("/collections"),
   createNotebook: (id: string, name: string, description?: string) =>
     req<Notebook>("/collections", { method: "POST", body: JSON.stringify({ id, name, description }) }),
+  notebook: (id: string) => req<Notebook>(`/collections/${id}`),
+  sharing: (id: string) => req<Sharing>(`/collections/${id}/sharing`),
+  share: (id: string, principal: string, role: "viewer" | "editor") =>
+    req<Sharing>(`/collections/${id}/sharing/members`, { method: "PUT", body: JSON.stringify({ principal, role }) }),
+  unshare: (id: string, principal: string) =>
+    req<Sharing>(`/collections/${id}/sharing/members/${encodeURIComponent(principal)}`, { method: "DELETE" }),
+  setLinkAccess: (id: string, link_access: "none" | "viewer") =>
+    req<Sharing>(`/collections/${id}/sharing`, { method: "PATCH", body: JSON.stringify({ link_access }) }),
+  discover: (id: string, query: string) =>
+    req<DiscoverHit[]>(`/collections/${id}/discover`, { method: "POST", body: JSON.stringify({ query }) }),
   renameNotebook: (id: string, name: string) =>
     req<Notebook>(`/collections/${id}`, { method: "PATCH", body: JSON.stringify({ name }) }),
   deleteNotebook: (id: string) => req<void>(`/collections/${id}`, { method: "DELETE" }),

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { BookOpen, Database, Loader2, Plus, Trash2 } from "lucide-react";
+import { BookOpen, Database, Loader2, Plus, Trash2, Users } from "lucide-react";
 import { api, Notebook, slugify } from "@/lib/api";
 
 export default function Home() {
@@ -44,7 +44,8 @@ export default function Home() {
     }
   }
 
-  const mine = (notebooks || []).filter((n) => !n.is_public);
+  const mine = (notebooks || []).filter((n) => !n.is_public && (n.role || "owner") === "owner");
+  const sharedWithMe = (notebooks || []).filter((n) => !n.is_public && (n.role === "editor" || n.role === "viewer"));
   const builtin = (notebooks || []).filter((n) => n.is_public);
 
   return (
@@ -96,6 +97,17 @@ export default function Home() {
         </div>
       </section>
 
+      {sharedWithMe.length > 0 && (
+        <section className="mb-10">
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted">Shared with me</h2>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {sharedWithMe.map((nb) => (
+              <NotebookCard key={nb.id} nb={nb} onOpen={() => router.push(`/?nb=${nb.id}`)} />
+            ))}
+          </div>
+        </section>
+      )}
+
       {builtin.length > 0 && (
         <section>
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted">Built-in collections</h2>
@@ -133,8 +145,14 @@ function NotebookCard({
         <h3 className="font-semibold leading-snug">{nb.name}</h3>
         {nb.description && <p className="mt-1 line-clamp-2 text-sm text-muted">{nb.description}</p>}
       </div>
-      <p className="mt-3 text-xs text-muted">
+      <p className="mt-3 flex items-center gap-1.5 text-xs text-muted">
         {builtin ? "MTRAG benchmark corpus" : `Created ${new Date(nb.created_at).toLocaleDateString()}`}
+        {!builtin && nb.role && nb.role !== "owner" && <span>· {nb.role === "editor" ? "Editor" : "Viewer"}</span>}
+        {!builtin && nb.role === "owner" && nb.shared && (
+          <span className="inline-flex items-center gap-0.5" title="Shared">
+            · <Users size={12} /> Shared
+          </span>
+        )}
       </p>
       {onDelete && (
         <button

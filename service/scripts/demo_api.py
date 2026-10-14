@@ -263,6 +263,23 @@ def main() -> None:
 
     mr._get = fake_get
     write_demo_calibration()
+    from abstain_api import search
+
+    search._ddg = (
+        lambda q, n: [  # no internet needed for the demo
+            {
+                "title": f"{q.title()} - Wikipedia",
+                "url": "https://en.wikipedia.org/wiki/Helgoland",
+                "snippet": "Overview.",
+            },
+            {
+                "title": f"{q} explained (video)",
+                "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+                "snippet": "A talk.",
+            },
+            {"title": f"Travel guide: {q}", "url": "https://example.org/guide", "snippet": "Timetables and prices."},
+        ][:n]
+    )
     s = get_settings()
     store = QdrantStore(s)
     store.ensure_collection()

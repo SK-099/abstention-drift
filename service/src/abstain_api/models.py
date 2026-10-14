@@ -35,6 +35,7 @@ class Collection(Base):
     description: Mapped[str | None] = mapped_column(Text)
     owner_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     is_public: Mapped[bool] = mapped_column(Boolean, default=False)
+    link_access: Mapped[str] = mapped_column(String(10), default="none")  # none | viewer (anyone signed in)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
 
 
@@ -145,3 +146,16 @@ class Artifact(Base):
     error: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, onupdate=now)
+
+
+class CollectionMember(Base):
+    """A person a notebook is shared with, by e-mail address or user id (they get access on their next sign-in)."""
+
+    __tablename__ = "collection_members"
+    __table_args__ = (UniqueConstraint("collection_id", "principal"),)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=uid)
+    collection_id: Mapped[str] = mapped_column(ForeignKey("collections.id", ondelete="CASCADE"), index=True)
+    principal: Mapped[str] = mapped_column(String(320), index=True)  # lower-case e-mail or external user id
+    role: Mapped[str] = mapped_column(String(10), default="viewer")  # viewer | editor
+    added_by: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)

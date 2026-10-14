@@ -25,6 +25,7 @@ export default function StudioPanel({
   onAsk,
   documentIds,
   builtin,
+  canEdit,
   hasSources,
 }: {
   notebookId: string;
@@ -33,6 +34,7 @@ export default function StudioPanel({
   onAsk?: (q: string) => void;
   documentIds: string[] | null;
   builtin: boolean;
+  canEdit: boolean;
   hasSources: boolean;
 }) {
   const [artifacts, setArtifacts] = useState<Artifact[]>([]);
@@ -73,7 +75,7 @@ export default function StudioPanel({
       setStudioError((e as Error).message);
     }
   }
-  const canGenerate = !builtin && hasSources && (documentIds === null || documentIds.length > 0);
+  const canGenerate = canEdit && hasSources && (documentIds === null || documentIds.length > 0);
   const current = artifacts.find((a) => a.id === open);
   const [notes, setNotes] = useState<Note[] | null>(null);
   const [editing, setEditing] = useState<Note | null>(null);
@@ -124,7 +126,15 @@ export default function StudioPanel({
                 key={k}
                 disabled={!canGenerate}
                 onClick={() => generate(k)}
-                title={canGenerate ? m.hint : builtin ? "The Studio works on your own notebooks" : "Add and tick sources first"}
+                title={
+                  canGenerate
+                    ? m.hint
+                    : builtin
+                      ? "The Studio works on your own notebooks"
+                      : !canEdit
+                        ? "You can view this notebook but not generate"
+                        : "Add and tick sources first"
+                }
                 className="flex items-center gap-2 rounded-xl border border-line bg-panel-2 px-2.5 py-2 text-left text-xs hover:border-accent disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md ${m.tint}`}>
@@ -135,7 +145,7 @@ export default function StudioPanel({
             );
           })}
         </div>
-        {!builtin && (
+        {canEdit && (
           <div className="mt-2 px-1">
             <button
               onClick={() => setCustom((c) => !c)}
@@ -193,7 +203,7 @@ export default function StudioPanel({
             onCite={onCite}
             onAsk={onAsk}
             onChanged={loadStudio}
-            canEdit={!builtin}
+            canEdit={canEdit}
           />
         )}
 

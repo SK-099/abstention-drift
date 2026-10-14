@@ -127,6 +127,10 @@ class Settings(BaseSettings):
     tts_speed: float = 1.0
     tts_sample_rate: int = 24000  # Kokoro's output rate (raw PCM is requested)
     tts_timeout_s: float = 300.0
+    # "discover sources": web search for a topic (duckduckgo needs no key)
+    search_provider: Literal["duckduckgo", "tavily", "brave", "searxng", "off"] = "duckduckgo"
+    search_api_key: str | None = None  # Tavily / Brave
+    searxng_url: str | None = None
     generation_model: str | None = None  # model for guides / Studio / audio scripts (default: DEFAULT_MODEL)
 
     # --- observability

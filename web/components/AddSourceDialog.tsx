@@ -1,18 +1,19 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ClipboardType, Globe, Loader2, MonitorPlay, Upload, X } from "lucide-react";
-import { api, NewSource } from "@/lib/api";
+import { CheckSquare, ClipboardType, Globe, Loader2, MonitorPlay, Search, Square, Telescope, Upload, X } from "lucide-react";
+import { api, DiscoverHit, NewSource } from "@/lib/api";
 
 export const ACCEPT = ".pdf,.html,.htm,.docx,.md,.txt";
 
-type Kind = "file" | "url" | "youtube" | "text";
+type Kind = "file" | "url" | "youtube" | "text" | "discover";
 
 const KINDS: { k: Kind; label: string; icon: typeof Globe; hint: string }[] = [
   { k: "file", label: "Upload", icon: Upload, hint: "PDF, Word, HTML, Markdown or text files" },
   { k: "url", label: "Website", icon: Globe, hint: "The text of a web page is fetched and indexed" },
   { k: "youtube", label: "YouTube", icon: MonitorPlay, hint: "The video's transcript (captions) becomes the source" },
   { k: "text", label: "Paste text", icon: ClipboardType, hint: "Notes, an e-mail, an article you copied" },
+  { k: "discover", label: "Discover", icon: Telescope, hint: "Search the web for a topic and pick the pages to add" },
 ];
 
 /** "Add source" dialog: upload files, a web page, a YouTube video or pasted text. */
@@ -34,6 +35,39 @@ export default function AddSourceDialog({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
+  const [query, setQuery] = useState("");
+  const [hits, setHits] = useState<DiscoverHit[] | null>(null);
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+
+  async function searchWeb() {
+    setError(null);
+    setBusy(true);
+    try {
+      const r = await api.discover(notebookId, query.trim());
+      setHits(r);
+      setPicked(new Set(r.slice(0, 3).map((h) => h.url)));
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function addPicked() {
+    setError(null);
+    setBusy(true);
+    const chosen = (hits || []).filter((h) => picked.has(h.url));
+    const failed: string[] = [];
+    await Promise.all(
+      chosen.map((h) =>
+        api.addSource(notebookId, { type: h.kind, url: h.url, title: h.title }).catch((e) => failed.push(`${h.title}: ${e.message}`)),
+      ),
+    );
+    setBusy(false);
+    onAdded();
+    if (failed.length) setError(failed.join("\n"));
+    else onClose();
+  }
 
   useEffect(() => {
     const esc = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -67,7 +101,7 @@ export default function AddSourceDialog({
       <div
         role="dialog"
         aria-label="Add source"
-        className="w-full max-w-lg rounded-2xl border border-line bg-panel shadow-2xl"
+        className="w-full max-w-xl rounded-2xl border border-line bg-panel shadow-2xl"
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-line px-5 py-3">
@@ -76,7 +110,7 @@ export default function AddSourceDialog({
             <X size={18} />
           </button>
         </div>
-        <div className="grid grid-cols-4 gap-2 px-5 pt-4">
+        <div className="grid grid-cols-5 gap-2 px-5 pt-4">
           {KINDS.map(({ k, label, icon: Icon }) => (
             <button
               key={k}
@@ -144,7 +178,59 @@ export default function AddSourceDialog({
               />
             </div>
           )}
-          {error && <p className="mt-2 text-sm text-bad">{error}</p>}
+          {kind === "discover" && (
+            <div className="flex flex-col gap-2">
+              <div className="flex gap-2">
+                <input
+                  autoFocus
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && query.trim().length >= 3 && searchWeb()}
+                  placeholder="What should the sources be about?"
+                  className="min-w-0 flex-1 rounded-lg border border-line bg-panel-2 px-3 py-2 text-sm outline-none focus:border-accent"
+                />
+                <button
+                  onClick={searchWeb}
+                  disabled={query.trim().length < 3 || busy}
+                  className="inline-flex items-center gap-1 rounded-lg border border-line px-3 text-sm hover:bg-panel-2 disabled:opacity-40"
+                >
+                  {busy && !hits ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />} Search
+                </button>
+              </div>
+              {hits && hits.length === 0 && <p className="text-sm text-muted">No results.</p>}
+              {hits && hits.length > 0 && (
+                <ul className="scroll-thin max-h-72 space-y-1 overflow-y-auto">
+                  {hits.map((h) => {
+                    const on = picked.has(h.url);
+                    return (
+                      <li key={h.url}>
+                        <button
+                          onClick={() =>
+                            setPicked((p) => {
+                              const n = new Set(p);
+                              if (n.has(h.url)) n.delete(h.url);
+                              else n.add(h.url);
+                              return n;
+                            })
+                          }
+                          className="flex w-full items-start gap-2 rounded-lg px-2 py-1.5 text-left hover:bg-panel-2"
+                        >
+                          {on ? <CheckSquare size={16} className="mt-0.5 shrink-0 text-accent" /> : <Square size={16} className="mt-0.5 shrink-0 text-muted" />}
+                          {h.kind === "youtube" ? <MonitorPlay size={15} className="mt-0.5 shrink-0 text-red-500" /> : <Globe size={15} className="mt-0.5 shrink-0 text-muted" />}
+                          <span className="min-w-0">
+                            <span className="block truncate text-sm font-medium">{h.title}</span>
+                            <span className="block truncate text-xs text-muted">{h.url}</span>
+                            {h.snippet && <span className="line-clamp-2 text-xs text-muted">{h.snippet}</span>}
+                          </span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+          )}
+          {error && <p className="mt-2 whitespace-pre-line text-sm text-bad">{error}</p>}
         </div>
         {kind !== "file" && (
           <div className="flex justify-end gap-2 border-t border-line px-5 py-3">
@@ -152,11 +238,12 @@ export default function AddSourceDialog({
               Cancel
             </button>
             <button
-              onClick={submit}
-              disabled={!valid || busy}
+              onClick={kind === "discover" ? addPicked : submit}
+              disabled={kind === "discover" ? !picked.size || !hits || busy : !valid || busy}
               className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white disabled:opacity-40"
             >
-              {busy && <Loader2 size={14} className="animate-spin" />} Add source
+              {busy && <Loader2 size={14} className="animate-spin" />}{" "}
+              {kind === "discover" ? `Add ${picked.size} source${picked.size === 1 ? "" : "s"}` : "Add source"}
             </button>
           </div>
         )}

@@ -107,6 +107,36 @@ class CollectionOut(BaseModel):
     description: str | None
     is_public: bool
     created_at: datetime
+    link_access: str = "none"
+    role: str | None = None  # the caller's role: owner | editor | viewer | public
+    shared: bool = False  # shared with at least one person or by link
+
+
+class MemberIn(BaseModel):
+    principal: str = Field(min_length=3, max_length=320, description="e-mail address or user id")
+    role: Literal["viewer", "editor"] = "viewer"
+
+
+class SharingOut(BaseModel):
+    link_access: Literal["none", "viewer"]
+    owner: str | None
+    members: list[dict]
+
+
+class SharingUpdate(BaseModel):
+    link_access: Literal["none", "viewer"]
+
+
+class DiscoverIn(BaseModel):
+    query: str = Field(min_length=3, max_length=300)
+    max_results: int = Field(default=8, ge=1, le=15)
+
+
+class DiscoverHit(BaseModel):
+    title: str
+    url: str
+    snippet: str = ""
+    kind: Literal["url", "youtube"] = "url"
 
 
 class DocumentOut(BaseModel):

@@ -12,10 +12,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..auth import current_user
 from ..db import get_session
 from ..guardrails import limiter, validate_upload
-from ..models import Collection, Conversation, Document, User
+from ..models import Collection, CollectionMember, Conversation, Document, User
 from ..schemas import CollectionIn, CollectionOut, CollectionUpdate, DocumentOut, PassageOut, SourceIn
 from ..settings import get_settings
-from ._access import readable_collection, writable_collection
+from ._access import owned_collection, principals, readable_collection, role_of, writable_collection
 
 router = APIRouter(prefix="/collections", tags=["collections"])
 
@@ -38,12 +38,47 @@ async def create_collection(
     return c
 
 
-@router.get("", response_model=list[CollectionOut], summary="Collections the caller can search")
+@router.get("", response_model=list[CollectionOut], summary="Collections the caller can search (with their role)")
 async def list_collections(user: User = Depends(current_user), session: AsyncSession = Depends(get_session)):
+    mine = dict(
+        (
+            await session.execute(
+                select(CollectionMember.collection_id, CollectionMember.role).where(
+                    CollectionMember.principal.in_(principals(user))
+                )
+            )
+        ).all()
+    )
     q = select(Collection).order_by(Collection.created_at)
     if not user.is_admin:
-        q = q.where(or_(Collection.is_public.is_(True), Collection.owner_id == user.id))
-    return (await session.execute(q)).scalars().all()
+        q = q.where(or_(Collection.is_public.is_(True), Collection.owner_id == user.id, Collection.id.in_(list(mine))))
+    shared = set((await session.execute(select(CollectionMember.collection_id).distinct())).scalars().all())
+    out = []
+    for c in (await session.execute(q)).scalars().all():
+        if c.owner_id == user.id:
+            role = "owner"
+        elif c.id in mine:
+            role = mine[c.id]
+        else:
+            role = "public" if c.is_public else "owner"  # admins see every notebook
+        out.append(
+            CollectionOut.model_validate(c).model_copy(
+                update={"role": role, "shared": c.id in shared or c.link_access != "none"}
+            )
+        )
+    return out
+
+
+@router.get("/{collection_id}", response_model=CollectionOut, summary="One notebook (also one shared by link)")
+async def get_collection(
+    collection_id: str, user: User = Depends(current_user), session: AsyncSession = Depends(get_session)
+):
+    c = await readable_collection(session, collection_id, user)
+    role = await role_of(session, c, user)
+    n = (await session.execute(select(CollectionMember.id).where(CollectionMember.collection_id == c.id))).first()
+    return CollectionOut.model_validate(c).model_copy(
+        update={"role": role, "shared": n is not None or c.link_access != "none"}
+    )
 
 
 def _safe_name(name: str) -> str:
@@ -274,7 +309,7 @@ async def update_collection(
 async def delete_collection(
     collection_id: str, user: User = Depends(current_user), session: AsyncSession = Depends(get_session)
 ):
-    c = await writable_collection(session, collection_id, user)
+    c = await owned_collection(session, collection_id, user)
     if c.is_public:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "built-in collections cannot be deleted")
     from ..retrieval import get_store
