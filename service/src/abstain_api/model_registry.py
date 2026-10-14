@@ -164,7 +164,7 @@ def _list_local(s: Settings, p: Provider) -> list[ModelInfo]:
         name=s.llm_model,
         calibrated=True,
         featured=True,
-        description="Research model",
+        description="",
     )
     out = {calibrated.id: calibrated}
     base = ollama_base(s)
@@ -175,11 +175,19 @@ def _list_local(s: Settings, p: Provider) -> list[ModelInfo]:
             if not name or _SKIP.search(name):
                 continue
             mid = f"local:{name}"
-            if mid in out:
+            if mid in out or f"local:{name.removesuffix(':latest')}" in out:
+                if mid in out and not out[mid].description:
+                    out[mid].description = (m.get("details") or {}).get("parameter_size", "")
                 continue
             size = (m.get("details") or {}).get("parameter_size", "")
             out[mid] = ModelInfo(
-                mid, "local", p.label, name, name, reasoning=is_reasoning(name), description=f"Local {size}".strip()
+                mid,
+                "local",
+                p.label,
+                name,
+                name.removesuffix(":latest"),
+                reasoning=is_reasoning(name),
+                description=size,
             )
     except Exception:
         try:  # vLLM / other OpenAI-compatible local servers
@@ -231,7 +239,16 @@ def _public_calibration(th) -> dict | None:
         return None
     d = {"tau": round(th.tau, 3), "min_p": round(th.min_p, 3), "source": th.source}
     st = th.stats or {}
-    for k in ("f1", "recall", "fa", "precision", "n_dev", "refusal_rate_answerable", "calibrated_at"):
+    for k in (
+        "f1",
+        "recall",
+        "fa",
+        "precision",
+        "n_dev",
+        "refusal_rate_answerable",
+        "seconds_per_example",
+        "calibrated_at",
+    ):
         if st.get(k) is not None:
             d[k] = round(st[k], 3) if isinstance(st[k], float) else st[k]
     return d

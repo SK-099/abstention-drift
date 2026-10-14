@@ -35,6 +35,11 @@ class Thresholds:
     stats: dict | None = None
 
 
+def canonical(model_id: str) -> str:
+    """Ollama's "phi4-mini" and "phi4-mini:latest" are the same model."""
+    return model_id[: -len(":latest")] if model_id.endswith(":latest") else model_id
+
+
 def slug(model_id: str) -> str:
     return re.sub(r"[^A-Za-z0-9.-]+", "_", model_id).strip("_")
 
@@ -59,7 +64,7 @@ class CalibrationStore:
             try:
                 c = json.loads(f.read_text(encoding="utf-8"))
                 if c.get("model_id") and c.get("complete", True):
-                    out[c["model_id"]] = c
+                    out[canonical(c["model_id"])] = c
             except Exception as e:  # a half-written file while a run is in progress
                 log.warning("skipping calibration file %s: %s", f, e)
         with self._lock:
@@ -72,10 +77,10 @@ class CalibrationStore:
     def get(self, model_id: str) -> Thresholds:
         from .model_registry import default_model_id
 
-        c = self._load().get(model_id)
+        c = self._load().get(canonical(model_id))
         if c:
             return Thresholds(float(c["tau"]), float(c["min_p"]), True, "calibrated", c)
-        research = model_id in {default_model_id(self.s), f"local:{self.s.llm_model}"}
+        research = canonical(model_id) in {canonical(default_model_id(self.s)), canonical(f"local:{self.s.llm_model}")}
         return Thresholds(
             self.s.resolved_gate_threshold(),
             self.s.resolved_min_p(),

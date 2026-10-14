@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Brain, Check, ChevronDown, RefreshCw, Search, ShieldCheck } from "lucide-react";
+import { Brain, Check, ChevronDown, RefreshCw, Search, ShieldCheck, Zap } from "lucide-react";
 import { api, ModelInfo, ModelsResponse } from "@/lib/api";
 
 const STORE_KEY = "model_choice";
@@ -72,20 +72,24 @@ export default function ModelPicker({
 
   const current = data?.models.find((m) => m.id === value);
   const groups = useMemo(() => {
-    const ms = (data?.models || []).filter((m) => {
-      if (!q.trim()) return true;
-      const s = q.toLowerCase();
-      return m.name.toLowerCase().includes(s) || m.id.toLowerCase().includes(s) || m.provider_label.toLowerCase().includes(s);
+    const s = q.trim().toLowerCase();
+    const ms = (data?.models || []).filter(
+      (m) => !s || m.name.toLowerCase().includes(s) || m.id.toLowerCase().includes(s) || m.provider_label.toLowerCase().includes(s),
+    );
+    // research model first, then local before cloud, calibrated before not, then by name
+    const rank = (m: ModelInfo) => [
+      m.calibration?.source === "research" ? 0 : 1,
+      m.provider === "local" ? 0 : 1,
+      m.calibrated ? 0 : 1,
+    ];
+    const sorted = [...ms].sort((a, b) => {
+      const ra = rank(a), rb = rank(b);
+      for (let i = 0; i < ra.length; i++) if (ra[i] !== rb[i]) return ra[i] - rb[i];
+      return a.name.localeCompare(b.name);
     });
-    // a "Recommended" shortcut only helps when the list is long
-    const featured = q.trim() || ms.length <= 8 ? [] : ms.filter((m) => m.featured || m.calibrated).slice(0, 12);
-    const byProvider = new Map<string, ModelInfo[]>();
-    for (const m of ms) {
-      const k = m.provider_label;
-      if (!byProvider.has(k)) byProvider.set(k, []);
-      byProvider.get(k)!.push(m);
-    }
-    return { featured, byProvider: [...byProvider.entries()] };
+    return GROUPS.map((g) => ({ ...g, models: sorted.filter((m) => m.reasoning === g.reasoning) })).filter(
+      (g) => g.models.length > 0,
+    );
   }, [data, q]);
 
   const choose = (m: ModelInfo) => {
@@ -124,16 +128,9 @@ export default function ModelPicker({
             </button>
           </div>
           <div className="scroll-thin max-h-[60vh] overflow-y-auto py-1">
-            {groups.featured.length > 0 && (
-              <Group title="Recommended">
-                {groups.featured.map((m) => (
-                  <Item key={`f-${m.id}`} m={m} active={m.id === value} onClick={() => choose(m)} />
-                ))}
-              </Group>
-            )}
-            {groups.byProvider.map(([label, ms]) => (
-              <Group key={label} title={`${label} · ${ms.length}`}>
-                {ms.map((m) => (
+            {groups.map((g) => (
+              <Group key={g.title} title={`${g.title} · ${g.models.length}`} icon={g.icon} caption={g.caption}>
+                {g.models.map((m) => (
                   <Item key={m.id} m={m} active={m.id === value} onClick={() => choose(m)} />
                 ))}
               </Group>
@@ -147,10 +144,7 @@ export default function ModelPicker({
           </div>
           <p className="flex items-start gap-1.5 border-t border-line px-3 py-2 text-xs text-muted">
             <ShieldCheck size={13} className="mt-px shrink-0 text-ok" />
-            <span>
-              Refusal thresholds calibrated for this model. Models without the shield use the research model&apos;s
-              thresholds, so they may refuse too often or too rarely.
-            </span>
+            <span>Refusal thresholds calibrated for this model (hover for details). Others use the research values.</span>
           </p>
           {missing.length > 0 && (
             <p className="border-t border-line px-3 py-2 text-xs text-muted">
@@ -165,6 +159,21 @@ export default function ModelPicker({
   );
 }
 
+const GROUPS = [
+  {
+    title: "Standard models",
+    reasoning: false,
+    icon: <Zap size={12} />,
+    caption: "Answer directly. Faster; best for quick look-ups in your sources.",
+  },
+  {
+    title: "Thinking models",
+    reasoning: true,
+    icon: <Brain size={12} />,
+    caption: "Reason step by step before answering (the reasoning is hidden). Slower; can be more careful.",
+  },
+];
+
 function calibrationText(m: ModelInfo) {
   const c = m.calibration;
   if (!c) return "Refusal thresholds calibrated for this model";
@@ -178,10 +187,26 @@ function calibrationText(m: ModelInfo) {
   );
 }
 
-function Group({ title, children }: { title: string; children: React.ReactNode }) {
+function Group({
+  title,
+  caption,
+  icon,
+  children,
+}: {
+  title: string;
+  caption: string;
+  icon: React.ReactNode;
+  children: React.ReactNode;
+}) {
   return (
     <div className="py-1">
-      <div className="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-muted">{title}</div>
+      <div className="sticky top-0 z-10 bg-panel px-3 pb-1.5 pt-2">
+        <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted">
+          {icon}
+          {title}
+        </div>
+        <div className="mt-0.5 text-[11px] leading-snug text-muted">{caption}</div>
+      </div>
       {children}
     </div>
   );
@@ -199,16 +224,21 @@ function Item({ m, active, onClick }: { m: ModelInfo; active: boolean; onClick: 
               <ShieldCheck size={14} />
             </span>
           )}
-          {m.reasoning && (
-            <span title="Reasoning model" className="text-muted">
-              <Brain size={14} />
+          {m.calibration?.source === "research" && (
+            <span className="rounded bg-accent/10 px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-accent">
+              Research
             </span>
           )}
         </span>
         <span className="block truncate text-xs text-muted">
-          {m.provider_label} · {m.model}
-          {m.context_length ? ` · ${ctx(m.context_length)}` : ""}
-          {m.description ? ` · ${m.description}` : ""}
+          {[
+            m.provider === "local" ? "Local" : m.provider_label,
+            m.description,
+            m.context_length ? ctx(m.context_length) : "",
+            m.calibration?.seconds_per_example ? `≈${Math.round(m.calibration.seconds_per_example)} s per answer` : "",
+          ]
+            .filter(Boolean)
+            .join(" · ")}
         </span>
       </span>
     </button>

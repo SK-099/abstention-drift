@@ -36,6 +36,7 @@ os.environ.update(
         "OPENROUTER_API_KEY": "demo",
         "LANGFUSE_PUBLIC_KEY": "",
         "CORS_ORIGINS": '["http://localhost:3000","http://127.0.0.1:3000"]',
+        "CALIBRATION_DIR": f"{TMP}/calibration",
     }
 )
 sys.path[:0] = [
@@ -135,6 +136,46 @@ DEMO_MODELS = {
 }
 
 
+# the laptop's calibrated local models: name, size, tau, min_p, f1, recall, fa, seconds per answer
+DEMO_LOCAL = [
+    ("qwen2.5:3b", "3.1B", 0.61, 0.50, 0.62, 0.73, 0.30, 0),
+    ("gemma3:4b", "4.3B", 0.64, 0.55, 0.67, 0.85, 0.34, 36.7),
+    ("qwen3:1.7b", "2.0B", 0.63, 0.35, 0.67, 0.72, 0.21, 32.5),
+    ("granite4:3b", "3.4B", 0.61, 0.45, 0.64, 0.88, 0.43, 20.1),
+    ("llama3.2:3b", "3.2B", 0.45, 0.35, 0.62, 0.89, 0.48, 16.7),
+    ("phi4-mini:latest", "3.8B", 0.52, 1.01, 0.60, 0.92, 0.57, 21.4),
+    ("qwen2.5:1.5b", "1.5B", 0.61, 0.35, 0.56, 0.49, 0.12, 9.7),
+    ("smollm2:1.7b", "1.7B", 0.61, 0.50, 0.54, 0.46, 0.12, 17.6),
+    ("deepseek-r1:1.5b", "1.8B", 0.54, 1.01, 0.54, 0.51, 0.19, 38.1),
+    ("llama3.2:1b", "1.2B", 0.52, 1.01, 0.53, 0.72, 0.48, 7.1),
+]
+
+
+def write_demo_calibration() -> None:
+    import json
+    from pathlib import Path
+
+    from abstain_api.calibration import canonical, slug
+
+    d = Path(os.environ["CALIBRATION_DIR"])
+    d.mkdir(parents=True, exist_ok=True)
+    for name, _, tau, min_p, f1, rec, fa, sec in DEMO_LOCAL[1:]:
+        mid = canonical(f"local:{name}")
+        rec_ = {
+            "model_id": mid,
+            "tau": tau,
+            "min_p": min_p,
+            "f1": f1,
+            "recall": rec,
+            "fa": fa,
+            "n_dev": 224,
+            "seconds_per_example": sec,
+            "source": "calibrated",
+            "complete": True,
+        }
+        (d / f"{slug(mid)}.json").write_text(json.dumps(rec_))
+
+
 def main() -> None:
     import uvicorn
 
@@ -145,10 +186,11 @@ def main() -> None:
 
     def fake_get(url, headers, timeout=15.0):
         if url.endswith("/api/tags"):
-            return {"models": [{"name": "qwen2.5:3b", "details": {"parameter_size": "3.1B"}}, {"name": "llama3.2:3b"}]}
+            return {"models": [{"name": n, "details": {"parameter_size": size}} for n, size, *_ in DEMO_LOCAL]}
         return DEMO_MODELS
 
     mr._get = fake_get
+    write_demo_calibration()
     s = get_settings()
     store = QdrantStore(s)
     store.ensure_collection()

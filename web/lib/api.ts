@@ -92,6 +92,7 @@ export type ModelInfo = {
     fa?: number;
     n_dev?: number;
     refusal_rate_answerable?: number;
+    seconds_per_example?: number;
   } | null;
 };
 

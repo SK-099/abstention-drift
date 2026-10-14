@@ -104,3 +104,11 @@ def test_each_model_answers_with_its_own_thresholds(client):
     by_model = {m["model"]: m["versions"] for m in metas}
     assert by_model["local:strict:1b"]["tau"] == 0.0 and by_model["local:strict:1b"]["thresholds"] == "calibrated"
     assert by_model["local:lenient:1b"]["tau"] == 0.99
+
+
+def test_latest_tag_shares_the_calibration():
+    from abstain_api.calibration import get_calibrations
+
+    _write("local:phi4-mini", tau=0.52, min_p=1.01)
+    cal = get_calibrations(get_settings())
+    assert cal.get("local:phi4-mini:latest").tau == 0.52 and cal.get("local:phi4-mini:latest").calibrated
