@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from .settings import get_settings
 
@@ -119,7 +119,28 @@ class DocumentOut(BaseModel):
     n_passages: int
     n_flagged: int
     error: str | None
+    source_type: str = "file"
+    source_url: str | None = None
+    guide: dict | None = None
+    guide_status: str = "none"
     created_at: datetime
+
+
+class SourceIn(BaseModel):
+    """A source that is not a file upload."""
+
+    type: Literal["url", "youtube", "text"]
+    url: str | None = Field(default=None, max_length=2000)
+    title: str | None = Field(default=None, max_length=200)
+    text: str | None = Field(default=None, max_length=2_000_000)
+
+    @model_validator(mode="after")
+    def _check(self):
+        if self.type in ("url", "youtube") and not (self.url or "").strip():
+            raise ValueError("url is required")
+        if self.type == "text" and len((self.text or "").strip()) < 20:
+            raise ValueError("paste at least a few sentences")
+        return self
 
 
 class PassageOut(BaseModel):

@@ -1,8 +1,108 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, ExternalLink, Loader2 } from "lucide-react";
+import { ArrowLeft, ChevronDown, ExternalLink, Loader2, MessageCircleQuestion, RefreshCw, Sparkles } from "lucide-react";
 import { api, Passage, SourceDoc } from "@/lib/api";
+
+/** "4:00" or "Title › 4:00" -> 240 */
+function seconds(section: string | null | undefined): number | null {
+  const last = (section || "").split("\u203a").pop()?.trim() || "";
+  if (!/^\d+(:\d{2}){1,2}$/.test(last)) return null;
+  return last.split(":").reduce((a, p) => a * 60 + Number(p), 0);
+}
+
+function originalHref(notebookId: string, doc: SourceDoc, cited: Passage | undefined): string {
+  if (doc.source_type === "youtube" && doc.source_url) {
+    const t = seconds(cited?.section);
+    if (t === null) return doc.source_url;
+    return doc.source_url + (doc.source_url.includes("?") ? "&" : "?") + `t=${t}s`;
+  }
+  if (doc.source_type === "url" && doc.source_url) return doc.source_url;
+  const isPdf = doc.filename.toLowerCase().endsWith(".pdf");
+  return api.fileUrl(notebookId, doc.id) + (isPdf && cited?.page ? `#page=${cited.page}` : "");
+}
+
+/** Source guide: summary, key topics, and questions the user can click to ask. */
+function Guide({
+  notebookId,
+  doc,
+  onAsk,
+  canEdit,
+  onChanged,
+}: {
+  notebookId: string;
+  doc: SourceDoc;
+  onAsk?: (q: string) => void;
+  canEdit: boolean;
+  onChanged?: () => void;
+}) {
+  const [open, setOpen] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const status = busy ? "pending" : doc.guide_status;
+  const g = doc.guide;
+  if (status === "none" || status === undefined) return null;
+  const regenerate = async () => {
+    setBusy(true);
+    await api.regenerateGuide(notebookId, doc.id).catch(() => undefined);
+    setBusy(false);
+    onChanged?.();
+  };
+  return (
+    <div className="mb-4 rounded-xl border border-line bg-panel-2 p-3">
+      <button onClick={() => setOpen((o) => !o)} className="flex w-full items-center gap-1.5 text-left text-sm font-semibold">
+        <Sparkles size={14} className="text-accent" /> Source guide
+        <ChevronDown size={14} className={`ml-auto text-muted transition ${open ? "" : "-rotate-90"}`} />
+      </button>
+      {open && status === "pending" && (
+        <p className="mt-2 flex items-center gap-2 text-xs text-muted">
+          <Loader2 size={12} className="animate-spin" /> Writing the summary…
+        </p>
+      )}
+      {open && status === "failed" && (
+        <p className="mt-2 text-xs text-muted">
+          The guide could not be written.{" "}
+          {canEdit && (
+            <button onClick={regenerate} className="text-accent hover:underline">
+              Try again
+            </button>
+          )}
+        </p>
+      )}
+      {open && status === "ready" && g && (
+        <div className="mt-2 space-y-2 text-sm">
+          <p className="whitespace-pre-line leading-relaxed">{g.summary}</p>
+          {g.topics.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {g.topics.map((t) => (
+                <span key={t} className="rounded-full border border-line bg-panel px-2 py-0.5 text-xs">
+                  {t}
+                </span>
+              ))}
+            </div>
+          )}
+          {g.questions.length > 0 && onAsk && (
+            <div className="flex flex-col items-start gap-1 pt-1">
+              {g.questions.map((q) => (
+                <button
+                  key={q}
+                  onClick={() => onAsk(q)}
+                  className="inline-flex items-start gap-1.5 rounded-lg px-1 py-0.5 text-left text-xs text-accent hover:bg-accent-soft"
+                >
+                  <MessageCircleQuestion size={13} className="mt-px shrink-0" /> {q}
+                </button>
+              ))}
+            </div>
+          )}
+          {canEdit && (
+            <button onClick={regenerate} className="inline-flex items-center gap-1 text-[11px] text-muted hover:text-ink">
+              <RefreshCw size={11} /> Write again
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 /** Reads one source as its indexed passages; the cited passage is highlighted and scrolled into view. */
 export default function SourceViewer({
@@ -10,11 +110,17 @@ export default function SourceViewer({
   doc,
   passageId,
   onBack,
+  onAsk,
+  canEdit = false,
+  onChanged,
 }: {
   notebookId: string;
   doc: SourceDoc;
   passageId: string | null;
   onBack: () => void;
+  onAsk?: (q: string) => void;
+  canEdit?: boolean;
+  onChanged?: () => void;
 }) {
   const [passages, setPassages] = useState<Passage[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -33,8 +139,7 @@ export default function SourceViewer({
   }, [passages, passageId]);
 
   const cited = passages?.find((p) => p.passage_id === passageId);
-  const isPdf = doc.filename.toLowerCase().endsWith(".pdf");
-  const fileHref = api.fileUrl(notebookId, doc.id) + (isPdf && cited?.page ? `#page=${cited.page}` : "");
+  const fileHref = originalHref(notebookId, doc, cited);
   let lastSection: string | null = null;
   let prevWords: string[] = [];
 
@@ -52,12 +157,13 @@ export default function SourceViewer({
           target="_blank"
           rel="noreferrer"
           className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-accent hover:bg-accent-soft"
-          title="Open the original file"
+          title={doc.source_url ? "Open the original page" : "Open the original file"}
         >
           Original <ExternalLink size={12} />
         </a>
       </div>
       <div className="scroll-thin flex-1 overflow-y-auto px-4 py-3 text-sm leading-relaxed">
+        {(!passageId || passageId.endsWith("-guide")) && <Guide key={doc.id} notebookId={notebookId} doc={doc} onAsk={onAsk} canEdit={canEdit} onChanged={onChanged} />}
         {error && <p className="text-bad">{error}</p>}
         {!passages && !error && (
           <p className="flex items-center gap-2 text-muted">

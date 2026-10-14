@@ -87,6 +87,9 @@ class FakeLLM:
     def chat(self, messages, max_new_tokens=None):
         sys_, user = messages[0]["content"], messages[-1]["content"]
         self.calls.append(sys_[:30])
+        if "short guides to documents" in sys_:
+            first = re.sub(r"\s+", " ", user.split("\n\n", 1)[-1])[:160]
+            return f"SUMMARY: The document says: {first}\nTOPICS: travel; timetables; ferries\nQUESTIONS:\n- When does it leave?\n- Where does it go?\n- How often does it run?"
         if "standalone search query" in sys_:
             return re.search(r"Latest question: (.*)", user).group(1).strip()
         if "Proposed answer" in user:

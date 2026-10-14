@@ -115,6 +115,14 @@ class Settings(BaseSettings):
     guardrails_buffer_output: bool = False  # true: don't stream tokens, send only the checked answer
     injection_model: str | None = None  # e.g. protectai/deberta-v3-base-prompt-injection-v2
 
+    # --- notebook sources and generated content (NotebookLM-style features)
+    source_guides: bool = True  # summary, topics and suggested questions for every new source
+    guide_chars: int = 6000  # text of a source shown to the LLM for its guide (small local models: ~1.5k tokens)
+    notebook_context_chars: int = 7000  # material per Studio / overview prompt
+    fetch_timeout_s: float = 20.0  # web pages and YouTube transcripts
+    allow_private_urls: bool = False  # never fetch localhost / private network addresses (SSRF)
+    generation_model: str | None = None  # model for guides / Studio / audio scripts (default: DEFAULT_MODEL)
+
     # --- observability
     langfuse_public_key: str | None = None
     langfuse_secret_key: str | None = None

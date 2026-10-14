@@ -51,6 +51,10 @@ class Document(Base):
     n_passages: Mapped[int] = mapped_column(Integer, default=0)
     n_flagged: Mapped[int] = mapped_column(Integer, default=0)  # chunks dropped by the injection check
     error: Mapped[str | None] = mapped_column(Text)
+    source_type: Mapped[str] = mapped_column(String(20), default="file")  # file | url | youtube | text
+    source_url: Mapped[str | None] = mapped_column(String(2000))
+    guide: Mapped[dict | None] = mapped_column(JSON)  # {"summary", "topics", "questions"} (source guide)
+    guide_status: Mapped[str] = mapped_column(String(20), default="none")  # none | pending | ready | failed
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, onupdate=now)
 

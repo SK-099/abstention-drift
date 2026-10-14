@@ -13,7 +13,7 @@ from ..auth import current_user
 from ..db import get_session
 from ..guardrails import limiter, validate_upload
 from ..models import Collection, Conversation, Document, User
-from ..schemas import CollectionIn, CollectionOut, CollectionUpdate, DocumentOut, PassageOut
+from ..schemas import CollectionIn, CollectionOut, CollectionUpdate, DocumentOut, PassageOut, SourceIn
 from ..settings import get_settings
 from ._access import readable_collection, writable_collection
 
@@ -85,16 +85,98 @@ async def upload_document(
     doc.path = str(dest)
     await session.commit()
 
-    from ..worker import index_document_task
-
-    if s.celery_eager:  # tests / no-Redis dev: index synchronously in a thread
-        import asyncio
-
-        await asyncio.to_thread(index_document_task.apply, args=[doc.id])
-    else:
-        index_document_task.delay(doc.id)
+    await _start_indexing(doc.id)
     await session.refresh(doc)
     return doc
+
+
+async def _start_indexing(doc_id: str) -> None:
+    from ..worker import index_document_task
+
+    if get_settings().celery_eager:  # tests / no-Redis dev: index synchronously in a thread
+        await asyncio.to_thread(index_document_task.apply, args=[doc_id])
+    else:
+        index_document_task.delay(doc_id)
+
+
+@router.post(
+    "/{collection_id}/sources",
+    response_model=DocumentOut,
+    status_code=202,
+    summary="Add a web page, a YouTube video (its transcript) or pasted text as a source",
+)
+@limiter.limit(lambda: get_settings().rate_limit_upload)
+async def add_source(
+    request: Request,
+    collection_id: str,
+    body: SourceIn,
+    user: User = Depends(current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    from ..sources import SourceError, check_public_url, youtube_id
+
+    s = get_settings()
+    await writable_collection(session, collection_id, user)
+    doc = Document(collection_id=collection_id, owner_id=user.id, source_type=body.type, path="", size_bytes=0)
+    if body.type == "text":
+        data = body.text.strip().encode("utf-8")
+        if len(data) > s.max_upload_mb * 1024 * 1024:
+            raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, f"text is larger than {s.max_upload_mb} MB")
+        doc.filename = re.sub(r"[\x00-\x1f<>]", "", (body.title or "").strip())[:200] or "Pasted text"
+        doc.content_type, doc.size_bytes = "text/plain", len(data)
+    else:
+        url = body.url.strip()
+        if body.type == "url" and youtube_id(url):
+            doc.source_type = "youtube"
+        try:
+            if doc.source_type == "youtube" and not youtube_id(url):
+                raise SourceError("not a YouTube video link")
+            if doc.source_type == "url":
+                await asyncio.to_thread(check_public_url, url, s)
+        except SourceError as e:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(e)) from e
+        doc.source_url = url
+        doc.filename = (body.title or url)[:255]
+        doc.content_type = "text/html" if doc.source_type == "url" else "text/markdown"
+    session.add(doc)
+    await session.flush()
+    if body.type == "text":
+        dest = Path(s.upload_dir) / collection_id / f"{doc.id}.md"
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_bytes(data)
+        doc.path = str(dest)
+    await session.commit()
+    await _start_indexing(doc.id)
+    await session.refresh(doc)
+    return doc
+
+
+@router.post(
+    "/{collection_id}/documents/{document_id}/guide",
+    response_model=DocumentOut,
+    status_code=202,
+    summary="Write the source guide (summary, topics, suggested questions) again",
+)
+async def regenerate_guide(
+    collection_id: str,
+    document_id: str,
+    user: User = Depends(current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    from ..worker import source_guide_task
+
+    await writable_collection(session, collection_id, user)
+    d = await _document(session, collection_id, document_id)
+    if d.status != "indexed":
+        raise HTTPException(status.HTTP_409_CONFLICT, "the source is not indexed yet")
+    d.guide_status = "pending"
+    await session.commit()
+    if get_settings().celery_eager:
+        await asyncio.to_thread(source_guide_task.apply, args=[d.id])
+    else:
+        source_guide_task.delay(d.id)
+    await session.refresh(d)
+    return d
 
 
 @router.get(
@@ -144,11 +226,14 @@ async def document_file(
     d = await _document(session, collection_id, document_id)
     if not d.path or not Path(d.path).exists():
         raise HTTPException(status.HTTP_404_NOT_FOUND, "file no longer stored")
+    inline = Path(d.path).suffix.lower() in {".pdf", ".txt", ".md"}
     return FileResponse(
         d.path,
-        media_type=d.content_type or "application/octet-stream",
-        filename=d.filename,
-        content_disposition_type="inline",
+        media_type=(d.content_type or "application/octet-stream") if inline else "application/octet-stream",
+        filename=d.filename if Path(d.filename).suffix else d.filename + Path(d.path).suffix,
+        content_disposition_type="inline" if inline else "attachment",
+        # an uploaded or fetched HTML page must never run scripts on the API's origin
+        headers={"Content-Security-Policy": "sandbox", "X-Content-Type-Options": "nosniff"},
     )
 
 

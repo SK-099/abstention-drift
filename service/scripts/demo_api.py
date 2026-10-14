@@ -87,6 +87,11 @@ class FakeLLM:
 
     def chat(self, messages, max_new_tokens=None):
         sys_, user = messages[0]["content"], messages[-1]["content"]
+        if "short guides to documents" in sys_:
+            return self._guide(user)
+        if "summaries given" in sys_:
+            titles = re.findall(r"^\[(\d+)\] (.+)$", user, re.M)
+            return "\n".join(f"- **{t}** is one of your sources [{i}]." for i, t in titles) or "No sources."
         if "answers ONLY from the provided passages" in sys_:
             return self._answer(user)
         if "standalone search query" in sys_:
@@ -98,6 +103,22 @@ class FakeLLM:
         if "clarifying question" in user:
             return "Could you say which one you mean?"
         return self._answer(user)
+
+    @staticmethod
+    def _guide(user):
+        body = user.split("\n\n", 1)[-1]
+        sents = [s.strip() for s in re.split(r"(?<=[.!?])\s+", body) if len(s.split()) > 4]
+        words = [w for w in re.findall(r"[A-Za-z][a-z]{5,}", body) if w.lower() not in STOP]
+        topics = list(dict.fromkeys(w.lower() for w in words))[:5]
+        qs = [f"What does the source say about {t}?" for t in topics[:3]]
+        return (
+            "SUMMARY: "
+            + " ".join(sents[:3])
+            + "\nTOPICS: "
+            + "; ".join(topics)
+            + "\nQUESTIONS:\n"
+            + "\n".join(f"- {q}" for q in qs)
+        )
 
     @staticmethod
     def _answer(user):

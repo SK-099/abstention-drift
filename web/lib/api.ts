@@ -19,8 +19,19 @@ export type SourceDoc = {
   n_passages: number;
   n_flagged: number;
   error: string | null;
+  source_type?: "file" | "url" | "youtube" | "text";
+  source_url?: string | null;
+  guide?: SourceGuide | null;
+  guide_status?: "none" | "pending" | "ready" | "failed";
   created_at: string;
 };
+
+export type SourceGuide = { summary: string; topics: string[]; questions: string[] };
+
+export type NewSource =
+  | { type: "url"; url: string; title?: string }
+  | { type: "youtube"; url: string; title?: string }
+  | { type: "text"; text: string; title?: string };
 
 export type Passage = { passage_id: string; text: string; page: number | null; section: string | null };
 
@@ -167,6 +178,10 @@ export const api = {
     fd.append("file", file);
     return req<SourceDoc>(`/collections/${nb}/documents`, { method: "POST", body: fd });
   },
+  addSource: (nb: string, body: NewSource) =>
+    req<SourceDoc>(`/collections/${nb}/sources`, { method: "POST", body: JSON.stringify(body) }),
+  regenerateGuide: (nb: string, doc: string) =>
+    req<SourceDoc>(`/collections/${nb}/documents/${doc}/guide`, { method: "POST" }),
   deleteSource: (nb: string, doc: string) => req<void>(`/collections/${nb}/documents/${doc}`, { method: "DELETE" }),
   passages: (nb: string, doc: string) => req<Passage[]>(`/collections/${nb}/documents/${doc}/passages`),
   fileUrl: (nb: string, doc: string) => `${API_URL}/collections/${nb}/documents/${doc}/file`,

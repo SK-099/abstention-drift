@@ -25,8 +25,9 @@ from ..agent_runtime import get_runtime
 from ..auth import current_user
 from ..calibration import get_calibrations
 from ..db import async_sessionmaker_, get_session
+from ..generation import get_llm, is_overview_question, overview_answer
 from ..guardrails import limiter
-from ..models import Conversation, Document, Message, User, now
+from ..models import Collection, Conversation, Document, Message, User, now
 from ..prompts import versions
 from ..safety import BLOCKED_INPUT, check_input
 from ..schemas import ChatRequest
@@ -88,6 +89,8 @@ async def chat_stream(
         if not ok:
             raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "no selected source belongs to this notebook")
         documents = sorted(ok)
+    # questions about the whole notebook ("summarise my sources") are answered from the source guides
+    guides = await _overview_guides(session, collection, documents) if is_overview_question(question) else []
     umsg = Message(conversation_id=conv.id, role="user", content=question, turn=turn, meta={"guardrails": gin.events})
     session.add(umsg)
     conv.updated_at = now()
@@ -142,15 +145,20 @@ async def chat_stream(
         for e in gin.events:  # input redactions (personal data / secrets removed from the question)
             yield {"event": "guardrail", "data": json.dumps(e)}
         final, t0 = None, time.perf_counter()
-        async for ev in rt.astream(
-            task,
-            conv_id,
-            callbacks=[handler] if handler else None,
-            metadata=meta,
-            trace=trace,
-            model=model_id,
-            documents=documents,
-        ):
+        source = (
+            _overview_stream(s, model_id, question, guides)
+            if guides
+            else rt.astream(
+                task,
+                conv_id,
+                callbacks=[handler] if handler else None,
+                metadata=meta,
+                trace=trace,
+                model=model_id,
+                documents=documents,
+            )
+        )
+        async for ev in source:
             if ev["event"] == "final":
                 final = ev["data"]
                 continue  # sent after it is stored (with the message id)
@@ -235,3 +243,67 @@ async def _blocked(gin, conv_id, user_msg_id, turn, collection, ver, trace, hand
         flush()
     final["conversation_id"] = conv_id
     yield {"event": "final", "data": json.dumps(final)}
+
+
+async def _overview_guides(session: AsyncSession, collection: str, documents: list[str] | None) -> list[Document]:
+    """Sources with a ready guide (only the ticked ones), for notebook-wide questions; [] for built-in corpora."""
+    c = await session.get(Collection, collection)
+    if c is None or c.is_public:
+        return []
+    q = select(Document).where(Document.collection_id == collection, Document.guide_status == "ready")
+    if documents is not None:
+        q = q.where(Document.id.in_(documents))
+    docs = (await session.execute(q.order_by(Document.created_at))).scalars().all()
+    return [d for d in docs if d.guide and d.guide.get("summary")][:30]
+
+
+async def _overview_stream(s, model_id: str, question: str, docs: list[Document]):
+    """Answer a notebook-wide question from the source guides; same events as the agent (step, token, final)."""
+    from ..model_registry import REQUEST_MODEL
+    from ..safety import guard_final
+
+    t0 = time.perf_counter()
+    yield {
+        "event": "step",
+        "data": {"node": "overview", "label": "Reading the source guides", "detail": f"{len(docs)} sources"},
+    }
+    tok = REQUEST_MODEL.set(model_id)
+    try:
+        llm = get_llm(s, model_id)
+        guides = [(d.filename, d.guide) for d in docs]
+        answer = await asyncio.to_thread(overview_answer, llm, question, guides)
+    finally:
+        REQUEST_MODEL.reset(tok)
+    yield {"event": "token", "data": {"text": answer}}
+    cites = [
+        {
+            "index": i,
+            "document_id": f"{d.id}-guide",
+            "title": d.filename,
+            "snippet": d.guide.get("summary", "")[:400],
+            "score": None,
+            "source_document": d.id,
+            "page": None,
+            "section": "Source guide",
+        }
+        for i, d in enumerate(docs, 1)
+    ]
+    secs = time.perf_counter() - t0
+    final = {
+        "answer": answer,
+        "decision": "answer",
+        "abstained_by": None,
+        "p_unanswerable": None,
+        "query": question,
+        "queries": [question],
+        "attempts": 0,
+        "citations": cites,
+        "trace": [f"overview: answered from {len(docs)} source guides"],
+        "timings": {"overview": round(secs, 3)},
+        "latency_ms": int(secs * 1000),
+    }
+    final, events = await asyncio.to_thread(guard_final, final)
+    for e in events:
+        yield {"event": "guardrail", "data": e}
+    final["guardrails"] = list(final.get("guardrails", [])) + events
+    yield {"event": "final", "data": final}

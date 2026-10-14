@@ -1,10 +1,30 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { AlertTriangle, CheckSquare, FileText, Loader2, Plus, Square, Trash2, Upload } from "lucide-react";
+import { useState } from "react";
+import {
+  AlertTriangle,
+  CheckSquare,
+  ClipboardType,
+  FileText,
+  Globe,
+  Loader2,
+  MonitorPlay,
+  Plus,
+  Sparkles,
+  Square,
+  Trash2,
+  Upload,
+} from "lucide-react";
 import { api, SourceDoc } from "@/lib/api";
+import AddSourceDialog from "./AddSourceDialog";
 
-const ACCEPT = ".pdf,.html,.htm,.docx,.md,.txt";
+export function SourceIcon({ d, size = 16 }: { d: SourceDoc; size?: number }) {
+  const cls = "shrink-0 text-muted";
+  if (d.source_type === "url") return <Globe size={size} className={cls} />;
+  if (d.source_type === "youtube") return <MonitorPlay size={size} className="shrink-0 text-red-500" />;
+  if (d.source_type === "text") return <ClipboardType size={size} className={cls} />;
+  return <FileText size={size} className={cls} />;
+}
 
 export default function SourcesPanel({
   notebookId,
@@ -25,7 +45,7 @@ export default function SourcesPanel({
   onOpen: (doc: SourceDoc) => void;
   canEdit: boolean;
 }) {
-  const input = useRef<HTMLInputElement>(null);
+  const [adding, setAdding] = useState(false);
   const [busy, setBusy] = useState(0);
   const [drag, setDrag] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -84,21 +104,21 @@ export default function SourcesPanel({
         <h2 className="font-semibold">Sources</h2>
         {canEdit && (
           <button
-            onClick={() => input.current?.click()}
+            onClick={() => setAdding(true)}
             className="inline-flex items-center gap-1 rounded-lg border border-line px-2.5 py-1 text-sm hover:bg-panel-2"
           >
             <Plus size={15} /> Add
           </button>
         )}
-        <input
-          ref={input}
-          type="file"
-          accept={ACCEPT}
-          multiple
-          hidden
-          onChange={(e) => e.target.files && upload(e.target.files)}
-        />
       </div>
+      {adding && (
+        <AddSourceDialog
+          notebookId={notebookId}
+          onUpload={upload}
+          onAdded={onChanged}
+          onClose={() => setAdding(false)}
+        />
+      )}
 
       <div className="scroll-thin flex-1 overflow-y-auto px-2 py-2">
         {builtin && (
@@ -109,12 +129,12 @@ export default function SourcesPanel({
         )}
         {!builtin && sources.length === 0 && busy === 0 && (
           <button
-            onClick={() => canEdit && input.current?.click()}
+            onClick={() => canEdit && setAdding(true)}
             className="mx-2 mt-2 flex w-[calc(100%-1rem)] flex-col items-center gap-2 rounded-xl border border-dashed border-line px-4 py-8 text-center text-sm text-muted hover:bg-panel-2"
           >
             <Upload size={22} />
-            Add PDFs, Word, HTML, Markdown or text files
-            <span className="text-xs">or drop them here</span>
+            Add files, web pages, YouTube videos or pasted text
+            <span className="text-xs">or drop files here</span>
           </button>
         )}
         {indexed.length > 1 && (
@@ -143,10 +163,15 @@ export default function SourcesPanel({
                 className="flex min-w-0 flex-1 items-center gap-2 text-left text-sm"
                 title={d.error || d.filename}
               >
-                <FileText size={16} className="shrink-0 text-muted" />
+                <SourceIcon d={d} />
                 <span className="truncate">{d.filename}</span>
               </button>
               {!ready && !bad && <Loader2 size={14} className="shrink-0 animate-spin text-muted" />}
+              {ready && d.guide_status === "pending" && (
+                <span title="Writing the source guide…">
+                  <Sparkles size={14} className="shrink-0 animate-pulse text-accent" />
+                </span>
+              )}
               {bad && <AlertTriangle size={14} className="shrink-0 text-bad" />}
               {canEdit && (
                 <button

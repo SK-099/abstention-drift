@@ -20,6 +20,11 @@ export default function NotebookView({ notebookId }: { notebookId: string }) {
   const [notesKey, setNotesKey] = useState(0);
   const [tab, setTab] = useState<Tab>("chat");
   const [title, setTitle] = useState("");
+  const [ask, setAsk] = useState<{ q: string; n: number } | null>(null);
+  const askQuestion = (q: string) => {
+    setAsk((a) => ({ q, n: (a?.n || 0) + 1 }));
+    setTab("chat");
+  };
   const known = useRef<Set<string>>(new Set());
 
   useEffect(() => {
@@ -38,13 +43,11 @@ export default function NotebookView({ notebookId }: { notebookId: string }) {
     const docs = await api.sources(notebookId).catch(() => [] as SourceDoc[]);
     setSources(docs);
     // newly indexed sources are ticked automatically (like NotebookLM)
+    const fresh = docs.filter((d) => d.status === "indexed" && !known.current.has(d.id)).map((d) => d.id);
+    fresh.forEach((id) => known.current.add(id));
     setSelected((sel) => {
       const next = new Set([...sel].filter((id) => docs.some((d) => d.id === id && d.status === "indexed")));
-      for (const d of docs)
-        if (d.status === "indexed" && !known.current.has(d.id)) {
-          next.add(d.id);
-          known.current.add(d.id);
-        }
+      fresh.forEach((id) => next.add(id));
       return next;
     });
   }, [notebookId]);
@@ -55,7 +58,9 @@ export default function NotebookView({ notebookId }: { notebookId: string }) {
   }, [loadSources]);
 
   // poll while sources are being processed
-  const pending = sources.some((s) => s.status === "queued" || s.status === "processing");
+  const pending = sources.some(
+    (s) => s.status === "queued" || s.status === "processing" || s.guide_status === "pending",
+  );
   useEffect(() => {
     if (!pending) return;
     const t = setInterval(loadSources, 2500);
@@ -65,6 +70,13 @@ export default function NotebookView({ notebookId }: { notebookId: string }) {
   const builtin = !!nb?.is_public;
   const indexed = sources.filter((s) => s.status === "indexed");
   const documentIds = useMemo(() => (builtin ? null : [...selected]), [builtin, selected]);
+  // chat suggestions from the source guides of the ticked sources (like NotebookLM)
+  const suggestions = useMemo(() => {
+    const ready = indexed.filter((d) => selected.has(d.id) && d.guide_status === "ready" && d.guide);
+    if (!ready.length) return null;
+    const qs = ready.flatMap((d) => d.guide!.questions.slice(0, ready.length > 2 ? 1 : 2)).slice(0, 3);
+    return [ready.length > 1 ? "Summarise my sources" : "Summarise this source", ...qs];
+  }, [indexed, selected]);
 
   const openCitation = (c: Citation) => {
     const doc = sources.find((d) => d.id === c.source_document);
@@ -141,9 +153,12 @@ export default function NotebookView({ notebookId }: { notebookId: string }) {
           {viewing ? (
             <SourceViewer
               notebookId={notebookId}
-              doc={viewing.doc}
+              doc={sources.find((d) => d.id === viewing.doc.id) || viewing.doc}
               passageId={viewing.passageId}
               onBack={() => setViewing(null)}
+              onAsk={askQuestion}
+              canEdit={!builtin}
+              onChanged={loadSources}
             />
           ) : (
             <SourcesPanel
@@ -168,6 +183,8 @@ export default function NotebookView({ notebookId }: { notebookId: string }) {
               builtin={builtin}
               onCite={openCitation}
               onNotesChanged={() => setNotesKey((k) => k + 1)}
+              ask={ask}
+              suggestions={suggestions}
             />
           )}
         </section>

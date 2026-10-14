@@ -42,6 +42,8 @@ export default function ChatPanel({
   builtin,
   onCite,
   onNotesChanged,
+  ask,
+  suggestions: guideSuggestions,
 }: {
   notebookId: string;
   notebookName: string;
@@ -50,6 +52,8 @@ export default function ChatPanel({
   builtin: boolean;
   onCite: (c: Citation) => void;
   onNotesChanged: () => void;
+  ask?: { q: string; n: number } | null;
+  suggestions?: string[] | null;
 }) {
   const [model, setModel] = useState<string | null>(null);
   const [convs, setConvs] = useState<Conversation[]>([]);
@@ -93,6 +97,12 @@ export default function ChatPanel({
   function patch(key: string, f: (m: UiMessage) => UiMessage) {
     setMessages((ms) => ms.map((m) => (m.key === key ? f(m) : m)));
   }
+
+  // a question clicked in a source guide
+  useEffect(() => {
+    if (ask) send(ask.q);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ask?.n]);
 
   async function send(text?: string) {
     const q = (text ?? input).trim();
@@ -149,7 +159,7 @@ export default function ChatPanel({
   const noneSelected = !builtin && hasSources && documentIds !== null && documentIds.length === 0;
   const suggestions = builtin
     ? ["How do I create a bucket in IBM Cloud Object Storage?", "What is the capital gains tax rate?"]
-    : ["What are the key findings?", "Which methods were used?", "What are the main limitations?"];
+    : guideSuggestions || ["What are the key findings?", "Which methods were used?", "What are the main limitations?"];
 
   return (
     <div className="flex h-full flex-col">
