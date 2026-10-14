@@ -5,7 +5,7 @@ self-check judges the answer unsupported. The gate does not depend on the LLM, b
 on its own and how strict its self-check is do, so tau and min_p are calibrated for every model on the MTRAG
 dev split (service/scripts/calibrate_models.py) and stored as one JSON file per model in CALIBRATION_DIR:
 
-    checkpoints/calibration/local_qwen3_4b.json   {"model_id": "local:qwen3:4b", "tau": .., "min_p": .., ...}
+    checkpoints/calibration/local_qwen3_1.7b.json   {"model_id": "local:qwen3:1.7b", "tau": .., "min_p": .., ...}
 
 The research model (LLM_MODEL) keeps the thresholds of the research runs (checker threshold.json and
 self_check.json) unless a file for it exists. A model without a calibration file uses the research values

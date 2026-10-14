@@ -228,5 +228,5 @@ def test_reasoning_models_think_blocks_are_hidden():
     assert visible_text("<thi") == "" and visible_text("<think>so") == ""
     assert visible_text("<think>so</think> Paris") == "Paris"
     assert visible_text("Paris") == "Paris"
-    assert is_reasoning("deepseek-r1:1.5b") and is_reasoning("qwen3:4b") and is_reasoning("openai/o4-mini")
+    assert is_reasoning("deepseek-r1:1.5b") and is_reasoning("qwen3:1.7b") and is_reasoning("openai/o4-mini")
     assert not is_reasoning("qwen2.5:3b") and not is_reasoning("llama3.2:3b") and not is_reasoning("gemma3:4b")

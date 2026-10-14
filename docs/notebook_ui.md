@@ -22,7 +22,7 @@ The picker lists:
 | --- | --- | --- |
 | `qwen2.5:3b` | 1.9 GB | research model, calibrated; Apache 2.0 |
 | `qwen2.5:1.5b`, `qwen2.5:7b` | 1 / 4.7 GB | same family, smaller / larger |
-| `qwen3:1.7b`, `qwen3:4b`, `qwen3:8b` | 1.4 / 2.5 / 5.2 GB | thinks before answering (hidden), slower |
+| `qwen3:1.7b`, `qwen3:8b` | 1.4 / 5.2 GB | thinks before answering (hidden), slower |
 | `llama3.2:1b`, `llama3.2:3b`, `llama3.1:8b` | 1.3 / 2 / 4.9 GB | Meta, Llama community licence |
 | `gemma3:1b`, `gemma3:4b` | 0.8 / 3.3 GB | Google, Gemma terms |
 | `phi4-mini` (3.8B) | 2.5 GB | Microsoft, MIT |

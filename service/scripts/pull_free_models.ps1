@@ -6,8 +6,7 @@ param([switch]$Large)
 $small = @(
   "qwen2.5:3b",        # the research model (already calibrated)
   "qwen2.5:1.5b",
-  "qwen3:4b",          # thinks before answering (slower)
-  "qwen3:1.7b",
+  "qwen3:1.7b",        # thinks before answering (slower)
   "llama3.2:3b",
   "llama3.2:1b",
   "gemma3:4b",
