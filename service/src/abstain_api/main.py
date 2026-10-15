@@ -70,6 +70,19 @@ async def lifespan(app: FastAPI):
     from .telemetry import get_metrics
 
     get_metrics().prime(cols)  # counters start at 0 so the first event after a restart is counted
+    if s.warmup and s.env != "test":  # load models in the background so the first question is not slow
+        import asyncio
+
+        from .agent_runtime import get_runtime
+
+        async def warm():
+            try:
+                await asyncio.to_thread(get_runtime, s)
+                log.info("agent runtime ready (embedder, re-ranker, gate loaded)")
+            except Exception:
+                log.exception("warm-up failed; models load on the first question instead")
+
+        app.state.warmup = asyncio.create_task(warm())
     yield
     from .tracing import flush
 

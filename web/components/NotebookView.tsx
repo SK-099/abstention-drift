@@ -39,7 +39,12 @@ export default function NotebookView({ notebookId }: { notebookId: string }) {
   }, [notebookId]);
 
   const loadSources = useCallback(async () => {
-    const docs = await api.sources(notebookId).catch(() => [] as SourceDoc[]);
+    let docs: SourceDoc[];
+    try {
+      docs = await api.sources(notebookId);
+    } catch {
+      return; // a failed refresh (e.g. the API busy loading models) must not empty the list
+    }
     setSources(docs);
     // newly indexed sources are ticked automatically (like NotebookLM)
     const fresh = docs.filter((d) => d.status === "indexed" && !known.current.has(d.id)).map((d) => d.id);

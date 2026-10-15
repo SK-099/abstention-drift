@@ -34,7 +34,24 @@ def get_llm(s: Settings, model_id: str | None = None):
 
         llm = RoutingChat(s)
     if hasattr(llm, "client"):  # RoutingChat: pick the model explicitly (no request context in the worker)
-        return llm.client(model_id or generation_model_id(s))
+        from .llm import OpenAICompatChat
+
+        c = llm.client(model_id or generation_model_id(s))
+        # one long attempt instead of 3 x LLM_TIMEOUT_S: a 3B model on a small GPU needs minutes for these
+        # prompts, and Ollama answers one request at a time (a chat question may be ahead in the queue)
+        long = s.model_copy(
+            update={"llm_timeout_s": s.generation_timeout_s, "reasoning_timeout_s": s.generation_timeout_s}
+        )
+        return OpenAICompatChat(
+            long,
+            retries=2,
+            model=c.model,
+            base_url=c.base_url,
+            api_key=c.api_key,
+            provider=c.provider,
+            max_tokens_field=c.max_tokens_field,
+            reasoning=c.reasoning,
+        )
     return llm
 
 

@@ -142,7 +142,7 @@ class FakeLLM:
             return self._guide(user)
         if "summaries given" in sys_:
             blocks = re.findall(r"^\[(\d+)\] (.+)\n(.+?)(?:\n|$)", user, re.M)
-            first = lambda s: re.split(r"(?<=[.!?])\s", s.strip(), maxsplit=1)[0]  # noqa: E731
+            first = lambda s: re.split(r"(?<=[.!?])\s", s.strip(), maxsplit=1)[0]
             lines = [f"- **{t}**: {first(s)} [{i}]" for i, t, s in blocks]
             return "Your sources cover:\n" + "\n".join(lines) if lines else "No sources."
         if "answers ONLY from the provided passages" in sys_:
@@ -162,7 +162,9 @@ class FakeLLM:
         body = user.split("\n\n", 1)[-1]
         sents = [s.strip() for s in re.split(r"(?<=[.!?])\s+", body) if len(s.split()) > 4]
         names = re.findall(r"(?<![.!?]\s)(?<!^)\b[A-Z][a-z]{3,}\b", body)
-        nouns = [w for w in re.findall(r"\b(tickets?|crossing|timetable|ferry|tram|buses|prices?|station)\b", body, re.I)]
+        nouns = [
+            w for w in re.findall(r"\b(tickets?|crossing|timetable|ferry|tram|buses|prices?|station)\b", body, re.I)
+        ]
         topics = list(dict.fromkeys([*names, *(n.lower() for n in nouns)]))[:5]
         qs = [f"What does the source say about {t}?" for t in topics[:3]]
         return (

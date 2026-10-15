@@ -131,7 +131,9 @@ class Settings(BaseSettings):
     search_provider: Literal["duckduckgo", "tavily", "brave", "searxng", "off"] = "duckduckgo"
     search_api_key: str | None = None  # Tavily / Brave
     searxng_url: str | None = None
-    generation_model: str | None = None  # model for guides / Studio / audio scripts (default: DEFAULT_MODEL)
+    generation_model: str | None = None
+    generation_timeout_s: float = 900.0  # guides / Studio / scripts: long prompts, Ollama may be busy with a chat
+    warmup: bool = True  # load the embedder, re-ranker and gate when the API starts, not on the first question  # model for guides / Studio / audio scripts (default: DEFAULT_MODEL)
 
     # --- observability
     langfuse_public_key: str | None = None
