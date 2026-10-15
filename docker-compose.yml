@@ -25,6 +25,7 @@ x-app: &app
     LANGFUSE_HOST: http://langfuse-web:3000
     TTS_URL: ${TTS_URL:-http://kokoro:8880}       # audio overviews (docker compose --profile tts up -d kokoro)
   extra_hosts: ["host.docker.internal:host-gateway"]
+  init: true                                     # tini as PID 1: reaps zombie processes, forwards stop signals
   volumes:
     - ./checkpoints:/app/checkpoints:ro          # fine-tuned checker (threshold.json) + self_check.json
     - ./indexes:/indexes:ro                      # research indexes (only for migrate_to_qdrant.py)
