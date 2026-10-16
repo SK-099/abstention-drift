@@ -182,3 +182,41 @@ def test_overview_detection():
     assert g["summary"] == "A text.\nIt is short." and g["topics"] == ["one", "two", "Three"]
     assert g["questions"] == ["Why is it short?", "How long is it?"]
     assert parse_guide("no structure at all")["summary"] == "no structure at all"
+
+
+def test_paper_headings_without_dots():
+    """Papers often number sections "5 Training" (no dot): accepted only in sequence, never table rows."""
+    from abstain_api.parsing import split_sections
+
+    text = "\n".join(
+        [
+            "Attention Is All You Need",
+            "1 Google Brain",
+            "Abstract",
+            "We propose the Transformer.",
+            "1 Introduction",
+            "Recurrent networks.",
+            "2 Background",
+            "Reducing computation.",
+            "3 Model Architecture",
+            "Encoder-decoder.",
+            "3.1 Encoder and Decoder Stacks",
+            "N = 6 layers.",
+            "8 heads were used",
+            "2 Base model 65 M",
+            "4 Why Self-Attention",
+            "Compare.",
+            "5 Training",
+            "Regime.",
+            "5.1 Training Data and Batching",
+            "WMT 2014.",
+            "References",
+            "[1] Ba.",
+        ]
+    )
+    paths = [p for p, _ in split_sections(text, markdown=False)]
+    assert "1. Introduction" in paths and "4. Why Self-Attention" in paths
+    assert "5. Training › 5.1 Training Data and Batching" in paths and paths[-1] == "References"
+    assert not any("heads" in p or "Base model" in p for p in paths)
+    body = dict(split_sections(text, markdown=False))
+    assert "8 heads were used" in body["3. Model Architecture › 3.1 Encoder and Decoder Stacks"]

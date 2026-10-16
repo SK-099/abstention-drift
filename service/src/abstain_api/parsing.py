@@ -113,11 +113,19 @@ def _heading(line: str, top: list, markdown: bool = True) -> tuple[int, str] | N
     if re.search(r"(\s\d+|[.,;:\-–])$", rest) or ". " in rest or len(rest.split()) > 12:
         return None
     parts = num.split(".")
-    if len(parts) == 1:  # top level: "5. Title" / "A. Title" (needs the dot) and must move forward
-        if not dot:
-            return None
+    if len(parts) == 1:  # top level: "5. Title" / "A. Title" (with a dot: must move forward)
         prev = top[0]
-        if num.isdigit():
+        if not dot:
+            # "5 Training" (no dot, as in many papers): only the next number in sequence, a capitalised
+            # title of at most 8 words, so table rows and counts ("8 heads", "2 layers") are not headings
+            expected = {1} if prev is None else ({int(prev) + 1} if str(prev).isdigit() else set())
+            if str(prev) == "1":
+                expected.add(1)  # a "1 Affiliation" line before "1 Introduction" must not block the real one
+            if not (num.isdigit() and int(num) in expected):
+                return None
+            if not rest[:1].isupper() or len(rest.split()) > 8 or re.search(r"\d", rest):
+                return None
+        elif num.isdigit():
             if prev is not None and (not str(prev).isdigit() or int(num) <= int(prev)):
                 return None
         elif prev is not None and str(prev).isalpha() and num <= prev:
