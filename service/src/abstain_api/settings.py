@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     llm_model: str = "qwen2.5:3b"
     llm_api_key: str = "ollama"
     llm_max_tokens: int = 320  # answer length cap (the research runs used 128)
-    llm_timeout_s: float = 120.0
+    llm_timeout_s: float = 300.0  # a local model may first have to be loaded (switching models on a 4 GB GPU)
     llm_seed: int | None = 13
     # --- model picker: the user chooses any model listed by GET /models. Providers appear when configured.
     # Model ids are "<provider>:<model>", e.g. "ollama:qwen2.5:3b", "openrouter:anthropic/claude-sonnet-4.5".

@@ -211,7 +211,14 @@ class AgentRuntime:
                     loop.call_soon_threadsafe(q.put_nowait, ev)
             except Exception as e:
                 log.exception("agent run failed")
-                loop.call_soon_threadsafe(q.put_nowait, {"event": "error", "data": {"message": str(e)[:500]}})
+                msg = str(e)[:500]
+                if "timed out" in msg.lower() or "timeout" in type(e).__name__.lower():
+                    msg = (
+                        "The model took too long to answer. On a small GPU this happens when the model has to be "
+                        "loaded first (after switching models) or while a source guide or Studio output is being "
+                        "written. Please wait a moment and ask again."
+                    )
+                loop.call_soon_threadsafe(q.put_nowait, {"event": "error", "data": {"message": msg}})
             finally:
                 loop.call_soon_threadsafe(q.put_nowait, done)
 
