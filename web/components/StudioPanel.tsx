@@ -182,7 +182,11 @@ export default function StudioPanel({
                     <m.icon size={15} />
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-medium">{busy ? `Generating ${m.label.toLowerCase()}…` : a.title || m.label}</span>
+                    <span className="block truncate text-sm font-medium">{busy
+                        ? a.data.stage === "speaking"
+                          ? `Speaking ${a.data.progress ? `${a.data.progress[0]}/${a.data.progress[1]}` : "…"}`
+                          : `Writing ${m.label.toLowerCase()}…`
+                        : a.title || m.label}</span>
                     <span className="block truncate text-[11px] text-muted">
                       {a.status === "failed" ? "Failed · " : ""}
                       {(a.data.sources || []).length || a.document_ids.length || "all"} sources · {ago(a.created_at)}

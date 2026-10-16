@@ -38,6 +38,8 @@ def generate_artifact(session: Session, artifact_id: str, s: Settings, store: Qd
         material, sources_ = notebook_material(
             [(d.id, d.filename, d.guide, store.document_passages(d.id)) for d in docs[:20]], s.notebook_context_chars
         )
+        a.data = {"stage": "writing", "sources": sources_}  # progress for the Studio view
+        session.commit()
         from .model_registry import REQUEST_MODEL
 
         tok = REQUEST_MODEL.set(a.model)
@@ -58,10 +60,12 @@ def generate_artifact(session: Session, artifact_id: str, s: Settings, store: Qd
         }.get(a.kind, not md.strip())
         if empty:
             raise ValueError("the model's output could not be read; try again or choose a larger model")
-        a.status = "ready"
         if a.kind == "audio":
-            session.commit()  # the script is useful even if speaking it fails
-            speak_artifact(a, s)
+            a.data = {**a.data, "stage": "speaking", "progress": [0, len(data["turns"])]}
+            session.commit()  # the script can be read while it is being spoken
+            speak_artifact(a, s, session)
+        a.data = {k: v for k, v in a.data.items() if k not in ("stage", "progress")}
+        a.status = "ready"
     except Exception as e:
         log.exception("studio %s %s failed", a.kind, artifact_id)
         a.status, a.error = "failed", str(e)[:1000]
@@ -69,13 +73,19 @@ def generate_artifact(session: Session, artifact_id: str, s: Settings, store: Qd
     return a
 
 
-def speak_artifact(a: Artifact, s: Settings) -> None:
+def speak_artifact(a: Artifact, s: Settings, session: Session | None = None) -> None:
     """Turn an audio overview's script into speech. If the voice service is not running the script stays
     readable and the reason is stored (data.audio_error); the user can try again later."""
     from .audio import TTSUnavailable, synthesize
 
     try:
-        secs = synthesize(a.data.get("turns") or [], audio_path(s, a), s)
+
+        def progress(done: int, total: int) -> None:
+            if session is not None:
+                a.data = {**a.data, "stage": "speaking", "progress": [done, total]}
+                session.commit()
+
+        secs = synthesize(a.data.get("turns") or [], audio_path(s, a), s, on_turn=progress)
         a.data = {**a.data, "audio": True, "duration_s": round(secs, 1), "audio_error": None}
     except TTSUnavailable as e:
         a.data = {**a.data, "audio": False, "audio_error": str(e)}
@@ -88,8 +98,10 @@ def respeak(session: Session, artifact_id: str, s: Settings) -> Artifact:
     a = session.get(Artifact, artifact_id)
     if a is not None and a.kind == "audio" and a.data.get("turns"):
         a.status = "running"
+        a.data = {**a.data, "stage": "speaking", "progress": [0, len(a.data["turns"])]}
         session.commit()
-        speak_artifact(a, s)
+        speak_artifact(a, s, session)
+        a.data = {k: v for k, v in a.data.items() if k not in ("stage", "progress")}
         a.status = "ready"
         session.commit()
     return a

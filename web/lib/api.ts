@@ -61,6 +61,8 @@ export type Artifact = {
     audio?: boolean;
     audio_error?: string | null;
     duration_s?: number;
+    stage?: "writing" | "speaking";
+    progress?: [number, number];
   };
   document_ids: string[];
   model: string | null;

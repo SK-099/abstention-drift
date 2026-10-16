@@ -85,10 +85,15 @@ def pcm_to_wav(pcm: bytes, rate: int) -> bytes:
     return out.getvalue()
 
 
-def synthesize(turns: list[dict], dest: Path, s: Settings) -> float:
-    """Speak every turn (Alex / Sam voices) and write one WAV. Returns the duration in seconds."""
+def synthesize(turns: list[dict], dest: Path, s: Settings, on_turn=None) -> float:
+    """Speak every turn (Alex / Sam voices) and write one WAV. Returns the duration in seconds.
+    on_turn(done, total) is called after each turn (progress shown in the Studio)."""
     voices = {"ALEX": s.tts_voice_a, "SAM": s.tts_voice_b}
-    clips = [pcm_to_wav(speak(t["text"], voices.get(t["speaker"], s.tts_voice_a), s), s.tts_sample_rate) for t in turns]
+    clips = []
+    for i, t in enumerate(turns, 1):
+        clips.append(pcm_to_wav(speak(t["text"], voices.get(t["speaker"], s.tts_voice_a), s), s.tts_sample_rate))
+        if on_turn:
+            on_turn(i, len(turns))
     data, secs = join_wavs(clips)
     dest.parent.mkdir(parents=True, exist_ok=True)
     dest.write_bytes(data)

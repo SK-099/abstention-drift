@@ -367,6 +367,90 @@ function AudioOverview({ a, notebookId, onChanged, canEdit }: { a: Artifact; not
   );
 }
 
+// ------------------------------------------------------------------------------------------- progress
+function utc(iso: string) {
+  return new Date(/[zZ]|[+-]\d\d:?\d\d$/.test(iso) ? iso : iso + "Z").getTime();
+}
+
+function Elapsed({ since }: { since: string }) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  const s = Math.max(0, Math.round((now - utc(since)) / 1000));
+  return (
+    <span className="tabular-nums">
+      {Math.floor(s / 60)}:{String(s % 60).padStart(2, "0")}
+    </span>
+  );
+}
+
+function Progress({ a }: { a: Artifact }) {
+  const model = a.model ? a.model.split(":").slice(1).join(":") : "the default model";
+  const n = (a.data.sources || []).length;
+  const speaking = a.data.stage === "speaking";
+  const [done, total] = a.data.progress || [0, 0];
+  const steps =
+    a.kind === "audio"
+      ? [
+          ["Reading your sources", !a.data.stage],
+          [`Writing the script with ${model}`, a.data.stage === "writing"],
+          ["Speaking it with Kokoro", speaking],
+        ]
+      : [
+          ["Reading your sources", !a.data.stage],
+          [`Writing with ${model}`, a.data.stage === "writing"],
+        ];
+  const current = steps.findIndex(([, on]) => on);
+  return (
+    <div className="space-y-4">
+      <ol className="space-y-2">
+        {steps.map(([label], i) => (
+          <li key={String(label)} className="flex items-center gap-2 text-sm">
+            {i < current ? (
+              <Check size={16} className="text-ok" />
+            ) : i === current ? (
+              <Loader2 size={16} className="animate-spin text-accent" />
+            ) : (
+              <span className="ml-1 h-2 w-2 rounded-full bg-line" />
+            )}
+            <span className={i === current ? "font-medium" : "text-muted"}>{label}</span>
+            {i === current && i === steps.length - 1 && speaking && total > 0 && (
+              <span className="text-muted">
+                · turn {done} of {total}
+              </span>
+            )}
+          </li>
+        ))}
+      </ol>
+      {speaking && total > 0 && (
+        <div className="h-1.5 w-full max-w-md overflow-hidden rounded-full bg-panel-2">
+          <div className="h-full bg-accent transition-all" style={{ width: `${Math.round((100 * done) / total)}%` }} />
+        </div>
+      )}
+      <p className="text-xs text-muted">
+        Running for <Elapsed since={a.created_at} />
+        {n ? ` · ${n} source${n === 1 ? "" : "s"}` : ""}. On a 4 GB GPU this takes a few minutes; larger models
+        (gemma3:4b, phi4-mini) and audio take longest. You can close this window; the result appears in the Studio.
+      </p>
+      {speaking && (a.data.turns || []).length > 0 && (
+        <div className="space-y-2 border-t border-line pt-3">
+          <h3 className="text-sm font-semibold">Script</h3>
+          {(a.data.turns || []).map((t, i) => (
+            <p key={i} className={`text-[15px] leading-relaxed ${i < done ? "" : "text-muted"}`}>
+              <span className={`mr-1.5 font-semibold ${t.speaker === "ALEX" ? "text-accent" : "text-ok"}`}>
+                {t.speaker === "ALEX" ? "Alex" : "Sam"}:
+              </span>
+              {t.text}
+            </p>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ------------------------------------------------------------------------------------------- the dialog
 export default function ArtifactView({
   notebookId,
@@ -417,13 +501,7 @@ export default function ArtifactView({
     : undefined;
 
   let body: React.ReactNode;
-  if (a.status === "pending" || a.status === "running")
-    body = (
-      <p className="flex items-center gap-2 text-muted">
-        <Loader2 size={16} className="animate-spin" /> Generating from your sources… this takes a minute or two with a
-        local model.
-      </p>
-    );
+  if (a.status === "pending" || a.status === "running") body = <Progress a={a} />;
   else if (a.status === "failed")
     body = (
       <p className="flex items-start gap-2 text-bad">

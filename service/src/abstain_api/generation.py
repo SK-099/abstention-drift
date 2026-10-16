@@ -228,11 +228,11 @@ STUDIO_PROMPTS = {
     ),
     "audio": (
         "Write the script of a lively podcast episode in which two hosts, ALEX and SAM, discuss the sources for "
-        "about 4 minutes. ALEX introduces the topic; SAM asks questions and adds details; they explain the main "
+        "about 2 minutes. ALEX introduces the topic; SAM asks questions and adds details; they explain the main "
         "ideas with concrete facts from the sources and end with a short recap. Use exactly this format, one "
-        "line per turn, 16 to 24 turns:\nALEX: <what Alex says>\nSAM: <what Sam says>\n"
+        "line per turn, 10 to 14 turns of one to three sentences:\nALEX: <what Alex says>\nSAM: <what Sam says>\n"
         "Do not use stage directions, sound effects or citations.",
-        1500,
+        900,
     ),
 }
 
