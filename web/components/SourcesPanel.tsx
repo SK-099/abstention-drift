@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { api, SourceDoc } from "@/lib/api";
 import AddSourceDialog from "./AddSourceDialog";
+import { loadSavedModel } from "./ModelPicker";
 
 export function SourceIcon({ d, size = 16 }: { d: SourceDoc; size?: number }) {
   const cls = "shrink-0 text-muted";
@@ -57,7 +58,7 @@ export default function SourcesPanel({
     await Promise.all(
       list.map((f) =>
         api
-          .upload(notebookId, f)
+          .upload(notebookId, f, loadSavedModel())
           .catch((e) => setError(`${f.name}: ${e.message}`))
           .finally(() => {
             setBusy((b) => b - 1);

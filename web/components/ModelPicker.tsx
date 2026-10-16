@@ -33,7 +33,7 @@ export default function ModelPicker({
   onChange,
 }: {
   value: string | null;
-  onChange: (id: string, info?: ModelInfo) => void;
+  onChange: (id: string, info?: ModelInfo, picked?: boolean) => void;
 }) {
   const [data, setData] = useState<ModelsResponse | null>(null);
   const [open, setOpen] = useState(false);
@@ -94,7 +94,7 @@ export default function ModelPicker({
 
   const choose = (m: ModelInfo) => {
     saveModel(m.id);
-    onChange(m.id, m);
+    onChange(m.id, m, m.id !== value);
     setOpen(false);
     setQ("");
   };

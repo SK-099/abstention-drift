@@ -163,6 +163,7 @@ class SourceIn(BaseModel):
     url: str | None = Field(default=None, max_length=2000)
     title: str | None = Field(default=None, max_length=200)
     text: str | None = Field(default=None, max_length=2_000_000)
+    model: str | None = Field(default=None, max_length=200, description="model for the source guide")
 
     @model_validator(mode="after")
     def _check(self):

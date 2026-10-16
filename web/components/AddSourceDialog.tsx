@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { CheckSquare, ClipboardType, Globe, Loader2, MonitorPlay, Search, Square, Telescope, Upload, X } from "lucide-react";
 import { api, DiscoverHit, NewSource } from "@/lib/api";
+import { loadSavedModel } from "./ModelPicker";
 
 export const ACCEPT = ".pdf,.html,.htm,.docx,.md,.txt";
 
@@ -60,7 +61,7 @@ export default function AddSourceDialog({
     const failed: string[] = [];
     await Promise.all(
       chosen.map((h) =>
-        api.addSource(notebookId, { type: h.kind, url: h.url, title: h.title }).catch((e) => failed.push(`${h.title}: ${e.message}`)),
+        api.addSource(notebookId, { type: h.kind, url: h.url, title: h.title, model: loadSavedModel() || undefined }).catch((e) => failed.push(`${h.title}: ${e.message}`)),
       ),
     );
     setBusy(false);
@@ -78,8 +79,9 @@ export default function AddSourceDialog({
   async function submit() {
     setError(null);
     let body: NewSource;
-    if (kind === "text") body = { type: "text", text, title: title.trim() || undefined };
-    else if (kind === "url" || kind === "youtube") body = { type: kind, url: url.trim() };
+    const model = loadSavedModel() || undefined;
+    if (kind === "text") body = { type: "text", text, title: title.trim() || undefined, model };
+    else if (kind === "url" || kind === "youtube") body = { type: kind, url: url.trim(), model };
     else return;
     setBusy(true);
     try {

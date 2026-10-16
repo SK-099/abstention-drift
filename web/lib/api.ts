@@ -71,9 +71,9 @@ export type Artifact = {
 };
 
 export type NewSource =
-  | { type: "url"; url: string; title?: string }
-  | { type: "youtube"; url: string; title?: string }
-  | { type: "text"; text: string; title?: string };
+  | { type: "url"; url: string; title?: string; model?: string }
+  | { type: "youtube"; url: string; title?: string; model?: string }
+  | { type: "text"; text: string; title?: string; model?: string };
 
 export type Passage = { passage_id: string; text: string; page: number | null; section: string | null };
 
@@ -225,15 +225,23 @@ export const api = {
   deleteNotebook: (id: string) => req<void>(`/collections/${id}`, { method: "DELETE" }),
 
   sources: (nb: string) => req<SourceDoc[]>(`/collections/${nb}/documents`),
-  upload: (nb: string, file: File) => {
+  upload: (nb: string, file: File, model?: string | null) => {
     const fd = new FormData();
     fd.append("file", file);
+    if (model) fd.append("model", model); // the chosen model writes the source guide
     return req<SourceDoc>(`/collections/${nb}/documents`, { method: "POST", body: fd });
   },
   addSource: (nb: string, body: NewSource) =>
     req<SourceDoc>(`/collections/${nb}/sources`, { method: "POST", body: JSON.stringify(body) }),
-  regenerateGuide: (nb: string, doc: string) =>
-    req<SourceDoc>(`/collections/${nb}/documents/${doc}/guide`, { method: "POST" }),
+  regenerateGuide: (nb: string, doc: string, model?: string | null) =>
+    req<SourceDoc>(`/collections/${nb}/documents/${doc}/guide${model ? `?model=${encodeURIComponent(model)}` : ""}`, {
+      method: "POST",
+    }),
+  warmModel: (model: string) =>
+    req<{ model: string; loaded: boolean; seconds: number | null }>("/models/warm", {
+      method: "POST",
+      body: JSON.stringify({ model }),
+    }),
   studio: (nb: string) => req<Artifact[]>(`/collections/${nb}/studio`),
   createArtifact: (
     nb: string,

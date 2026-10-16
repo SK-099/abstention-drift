@@ -62,6 +62,18 @@ export default function ChatPanel({
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [showConvs, setShowConvs] = useState(false);
+  // switching local models: one model fits on a small GPU, so load the new one while the user types
+  const [loading, setLoading] = useState<{ name: string; done?: number | null; failed?: boolean } | null>(null);
+  const warm = (id: string, name: string) => {
+    setLoading({ name });
+    api
+      .warmModel(id)
+      .then((r) => {
+        setLoading(r.loaded ? { name, done: r.seconds } : null);
+        if (r.loaded) setTimeout(() => setLoading((l) => (l && l.name === name && l.done !== undefined ? null : l)), 6000);
+      })
+      .catch(() => setLoading(null));
+  };
   const abort = useRef<AbortController | null>(null);
   const bottom = useRef<HTMLDivElement>(null);
 
@@ -164,7 +176,13 @@ export default function ChatPanel({
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center gap-2 border-b border-line px-3 py-2">
-        <ModelPicker value={model} onChange={(id) => setModel(id)} />
+        <ModelPicker
+          value={model}
+          onChange={(id, info, picked) => {
+            setModel(id);
+            if (picked && id.startsWith("local:")) warm(id, info?.name || id.split(":").slice(1).join(":"));
+          }}
+        />
         <div className="relative ml-auto">
           <button
             onClick={() => setShowConvs((s) => !s)}
@@ -234,6 +252,21 @@ export default function ChatPanel({
       <div className="border-t border-line px-4 py-3">
         <div className="mx-auto max-w-3xl">
           {noneSelected && <p className="mb-2 text-xs text-warn">Tick at least one source to ask a question.</p>}
+          {loading && (
+            <p className="mb-2 flex items-center gap-1.5 text-xs text-muted">
+              {loading.done === undefined ? (
+                <>
+                  <span className="h-2 w-2 animate-pulse rounded-full bg-accent" /> Loading {loading.name} into
+                  memory… the first answer after switching models can take a minute or two.
+                </>
+              ) : (
+                <>
+                  <span className="h-2 w-2 rounded-full bg-ok" /> {loading.name} is ready
+                  {loading.done ? ` (loaded in ${Math.round(loading.done)} s)` : ""}.
+                </>
+              )}
+            </p>
+          )}
           <div className="flex items-end gap-2 rounded-2xl border border-line bg-panel-2 px-3 py-2 focus-within:border-accent">
             <textarea
               value={input}

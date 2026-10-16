@@ -4,7 +4,7 @@ import asyncio
 import re
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
 from fastapi.responses import FileResponse
 from sqlalchemy import delete, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -97,6 +97,7 @@ async def upload_document(
     request: Request,
     collection_id: str,
     file: UploadFile = File(...),
+    model: str | None = Form(default=None, description="model for the source guide (the one chosen in the menu)"),
     user: User = Depends(current_user),
     session: AsyncSession = Depends(get_session),
 ):
@@ -120,18 +121,30 @@ async def upload_document(
     doc.path = str(dest)
     await session.commit()
 
-    await _start_indexing(doc.id)
+    await _start_indexing(doc.id, _guide_model(model))
     await session.refresh(doc)
     return doc
 
 
-async def _start_indexing(doc_id: str) -> None:
+def _guide_model(model: str | None) -> str | None:
+    """The model chosen in the menu writes the source guide (one model stays loaded on a small GPU)."""
+    if not model:
+        return None
+    from ..model_registry import get_registry
+
+    try:
+        return get_registry(get_settings()).resolve(model)
+    except ValueError:
+        return None
+
+
+async def _start_indexing(doc_id: str, model: str | None = None) -> None:
     from ..worker import index_document_task
 
     if get_settings().celery_eager:  # tests / no-Redis dev: index synchronously in a thread
-        await asyncio.to_thread(index_document_task.apply, args=[doc_id])
+        await asyncio.to_thread(index_document_task.apply, args=[doc_id, model])
     else:
-        index_document_task.delay(doc_id)
+        index_document_task.delay(doc_id, model)
 
 
 @router.post(
@@ -181,7 +194,7 @@ async def add_source(
         dest.write_bytes(data)
         doc.path = str(dest)
     await session.commit()
-    await _start_indexing(doc.id)
+    await _start_indexing(doc.id, _guide_model(body.model))
     await session.refresh(doc)
     return doc
 
@@ -195,6 +208,7 @@ async def add_source(
 async def regenerate_guide(
     collection_id: str,
     document_id: str,
+    model: str | None = None,
     user: User = Depends(current_user),
     session: AsyncSession = Depends(get_session),
 ):
@@ -207,9 +221,9 @@ async def regenerate_guide(
     d.guide_status = "pending"
     await session.commit()
     if get_settings().celery_eager:
-        await asyncio.to_thread(source_guide_task.apply, args=[d.id])
+        await asyncio.to_thread(source_guide_task.apply, args=[d.id, _guide_model(model)])
     else:
-        source_guide_task.delay(d.id)
+        source_guide_task.delay(d.id, _guide_model(model))
     await session.refresh(d)
     return d
 

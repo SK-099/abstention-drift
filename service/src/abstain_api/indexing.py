@@ -82,7 +82,9 @@ def fetch_source(doc: Document, s: Settings) -> None:
     doc.filename = (title or doc.filename)[:255]
 
 
-def make_guide(session: Session, doc_id: str, s: Settings, store: QdrantStore | None = None) -> Document:
+def make_guide(
+    session: Session, doc_id: str, s: Settings, store: QdrantStore | None = None, model: str | None = None
+) -> Document:
     """Source guide (summary, key topics, suggested questions) from the indexed passages."""
     from .generation import get_llm, source_guide
 
@@ -91,7 +93,7 @@ def make_guide(session: Session, doc_id: str, s: Settings, store: QdrantStore | 
         return doc
     try:
         passages = (store or get_store(s)).document_passages(doc.id)
-        doc.guide = source_guide(get_llm(s), doc.filename, passages, s)
+        doc.guide = source_guide(get_llm(s, model), doc.filename, passages, s)
         doc.guide_status = "ready"
     except Exception as e:
         log.warning("source guide for %s failed: %s", doc_id, e)

@@ -47,7 +47,7 @@ def _start_metrics_server(**_):
 
 
 @celery_app.task(name="abstain.index_document", bind=True, max_retries=2, default_retry_delay=30)
-def index_document_task(self, doc_id: str) -> dict:
+def index_document_task(self, doc_id: str, model: str | None = None) -> dict:
     from .db import sync_sessionmaker
     from .indexing import index_document
     from .telemetry import get_metrics
@@ -60,20 +60,20 @@ def index_document_task(self, doc_id: str) -> dict:
         out = {"id": doc.id, "status": doc.status, "n_passages": doc.n_passages, "n_flagged": doc.n_flagged}
     if out["status"] == "indexed" and get_settings().source_guides:
         if get_settings().celery_eager:
-            source_guide_task.apply(args=[doc_id])
+            source_guide_task.apply(args=[doc_id, model])
         else:
-            source_guide_task.delay(doc_id)
+            source_guide_task.delay(doc_id, model)
     return out
 
 
 @celery_app.task(name="abstain.source_guide", max_retries=1, default_retry_delay=60)
-def source_guide_task(doc_id: str) -> dict:
+def source_guide_task(doc_id: str, model: str | None = None) -> dict:
     """Summary, key topics and suggested questions for one source (runs after indexing; a new LLM call)."""
     from .db import sync_sessionmaker
     from .indexing import make_guide
 
     with sync_sessionmaker()() as session:
-        doc = make_guide(session, doc_id, get_settings())
+        doc = make_guide(session, doc_id, get_settings(), model=model)
         return {"id": doc_id, "guide_status": doc.guide_status if doc else None}
 
 

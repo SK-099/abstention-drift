@@ -230,3 +230,34 @@ def test_reasoning_models_think_blocks_are_hidden():
     assert visible_text("Paris") == "Paris"
     assert is_reasoning("deepseek-r1:1.5b") and is_reasoning("qwen3:1.7b") and is_reasoning("openai/o4-mini")
     assert not is_reasoning("qwen2.5:3b") and not is_reasoning("llama3.2:3b") and not is_reasoning("gemma3:4b")
+
+
+def test_warm_model_and_guide_with_the_chosen_model(client, monkeypatch):
+    from abstain_api import indexing
+
+    r = client.post("/models/warm", json={"model": "openrouter:openai/gpt-4.1"}, headers=auth("nora"))
+    assert r.status_code == 422
+    r = client.post("/models/warm", json={"model": "local:qwen2.5:3b"}, headers=auth("nora"))
+    assert r.status_code == 200 and r.json()["model"] == "local:qwen2.5:3b"  # no Ollama in tests: loaded False
+    seen = []
+    real = indexing.make_guide
+
+    def spy(session, doc_id, s, store=None, model=None):
+        seen.append(model)
+        return real(session, doc_id, s, store, model)
+
+    monkeypatch.setattr(indexing, "make_guide", spy)
+    _nb(client, "guidemodel")
+    r = client.post(
+        "/collections/guidemodel/documents",
+        files={"file": ("a.md", DOC_A.encode(), "text/markdown")},
+        data={"model": "local:gemma3:4b"},
+        headers=auth("nora"),
+    )
+    assert r.json()["status"] == "indexed"
+    r = client.post(
+        "/collections/guidemodel/sources", json={"type": "text", "text": DOC_B, "model": "bogus"}, headers=auth("nora")
+    )
+    doc = r.json()["id"]
+    client.post(f"/collections/guidemodel/documents/{doc}/guide?model=local:llama3.2:3b", headers=auth("nora"))
+    assert seen == ["local:gemma3:4b", None, "local:llama3.2:3b"]  # an invalid model falls back to the default

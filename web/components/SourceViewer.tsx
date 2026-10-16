@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, ChevronDown, ExternalLink, Loader2, MessageCircleQuestion, RefreshCw, Sparkles } from "lucide-react";
 import { api, Passage, SourceDoc } from "@/lib/api";
+import { loadSavedModel } from "./ModelPicker";
 
 /** "4:00" or "Title › 4:00" -> 240 */
 function seconds(section: string | null | undefined): number | null {
@@ -43,7 +44,7 @@ function Guide({
   if (status === "none" || status === undefined) return null;
   const regenerate = async () => {
     setBusy(true);
-    await api.regenerateGuide(notebookId, doc.id).catch(() => undefined);
+    await api.regenerateGuide(notebookId, doc.id, loadSavedModel()).catch(() => undefined);
     setBusy(false);
     onChanged?.();
   };
