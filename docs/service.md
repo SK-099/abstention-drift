@@ -159,3 +159,24 @@ injection screen, BM25 vectors, chunking, the OpenAI-compatible client (with tok
 
 The web front end (Next.js + Clerk/Auth.js + front-end Sentry) is deferred; the compose file has a
 commented `web` service and CORS is already set up for `http://localhost:3000`.
+
+## End-to-end test on your own PDFs, for every model
+
+`scripts/smoke_test.py` (plain Python, no packages) drives the running stack the way the UI does and writes a
+report per model:
+
+```powershell
+docker compose up -d
+docker compose --profile tts up -d kokoro                       # for the audio overview check
+python scripts\smoke_test.py --pdfs paper1.pdf paper2.pdf paper3.pdf
+python scripts\smoke_test.py --pdfs a.pdf b.pdf --models qwen2.5:3b gemma3:4b --quick   # faster
+python scripts\smoke_test.py --resume smoke_results\<folder>    # continue after a crash or restart
+```
+
+Once: health, model list, upload -> indexing -> source guide, section headings, file download, pasted text, web
+page, Discover, (YouTube with `--youtube <link>`), notes, sharing settings. Per model: warm-up; per PDF a
+general, a section ("experiments") and an unanswerable question; a follow-up in the same chat; notebook-wide
+summary and comparison; feedback; Studio (`--studio faq flashcards` by default, `all` or `none`); the audio
+overview for the first model (`--audio-models N`). Results: `smoke_results/<time>/report.md` and `report.csv`.
+FAIL = something broke; WARN = it ran, but the model answered a question it should have refused (or the
+reverse), which is model quality rather than a bug.
