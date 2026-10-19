@@ -7,8 +7,11 @@ stream writer, so the API can push them to the browser as they arrive.
 
 from __future__ import annotations
 
+import json
 import re
 import time
+
+import httpx
 
 from abstain.agent import STREAM_TOKENS
 
@@ -34,6 +37,59 @@ def visible_text(text: str) -> str:
     if "<think>".startswith(t[:7]) and "</think>" not in t:  # inside (or starting) a think block
         return ""
     return strip_thinking(text).lstrip() if "<think>" in t else text.lstrip()
+
+
+class _Msg:
+    def __init__(self, content: str):
+        self.content = content
+
+
+class OllamaNativeChat:
+    """Minimal client for Ollama's /api/chat with .invoke(messages) / .stream(messages) like a LangChain chat
+    model (no extra dependency). Needed because only the native API accepts options such as num_ctx."""
+
+    _ROLES = {"system": "system", "human": "user", "user": "user", "ai": "assistant", "assistant": "assistant"}
+
+    def __init__(self, base: str, model: str, options: dict, keep_alive: str, timeout: float, think: bool = False):
+        self.base, self.model, self.options, self.keep_alive, self.timeout = base, model, options, keep_alive, timeout
+        self.think = think
+
+    def _body(self, msgs, stream: bool) -> dict:
+        body = {
+            "model": self.model,
+            "messages": [
+                {"role": self._ROLES.get(getattr(m, "type", "user"), "user"), "content": str(m.content)} for m in msgs
+            ],
+            "stream": stream,
+            "options": self.options,
+            "keep_alive": self.keep_alive,
+        }
+        if self.think:  # thinking models: the reasoning comes back in its own field, not in the answer
+            body["think"] = True
+        return body
+
+    def invoke(self, msgs) -> _Msg:
+        r = httpx.post(f"{self.base}/api/chat", json=self._body(msgs, False), timeout=self.timeout)
+        if r.status_code >= 400:
+            raise RuntimeError(f"Ollama error {r.status_code}: {r.text[:300]}")
+        return _Msg((r.json().get("message") or {}).get("content") or "")
+
+    def stream(self, msgs):
+        with httpx.stream("POST", f"{self.base}/api/chat", json=self._body(msgs, True), timeout=self.timeout) as r:
+            if r.status_code >= 400:
+                r.read()
+                raise RuntimeError(f"Ollama error {r.status_code}: {r.text[:300]}")
+            for line in r.iter_lines():
+                if not line.strip():
+                    continue
+                d = json.loads(line)
+                if d.get("error"):
+                    raise RuntimeError(f"Ollama error: {d['error']}")
+                text = (d.get("message") or {}).get("content") or ""
+                if text:
+                    yield _Msg(text)
+                if d.get("done"):
+                    break
 
 
 class OpenAICompatChat:
@@ -83,24 +139,23 @@ class OpenAICompatChat:
             )
             if self.is_ollama:
                 # Ollama's native API, so the context window can be set (its OpenAI endpoint cannot)
-                from langchain_ollama import ChatOllama
-
                 from .model_registry import ollama_base
 
                 timeout = (
                     max(self.s.llm_timeout_s, self.s.reasoning_timeout_s) if self.reasoning else self.s.llm_timeout_s
                 )
-                self._models[n] = ChatOllama(
-                    model=self.model,
-                    base_url=ollama_base(self.s.model_copy(update={"llm_base_url": self.base_url}))
-                    if self.base_url != self.s.llm_base_url
-                    else ollama_base(self.s),
-                    num_ctx=self.s.ollama_num_ctx,
-                    num_predict=n,
-                    keep_alive=self.s.ollama_keep_alive,
-                    reasoning=True if self.reasoning else None,  # thinking goes to its own field, not the answer
-                    client_kwargs={"timeout": timeout},
-                    **kw,
+                base = (
+                    ollama_base(self.s)
+                    if self.base_url == self.s.llm_base_url
+                    else re.sub(r"/v1/?$", "", self.base_url).rstrip("/")
+                )
+                options = {"num_ctx": self.s.ollama_num_ctx, "num_predict": n}
+                if "temperature" in kw:
+                    options["temperature"] = kw["temperature"]
+                if "seed" in kw:
+                    options["seed"] = kw["seed"]
+                self._models[n] = OllamaNativeChat(
+                    base, self.model, options, self.s.ollama_keep_alive, timeout, think=self.reasoning
                 )
                 return self._models[n]
             # "max_tokens" is understood by Ollama, vLLM, Groq, Together, OpenRouter, Anthropic and Gemini;

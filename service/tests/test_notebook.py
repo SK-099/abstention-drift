@@ -261,3 +261,26 @@ def test_warm_model_and_guide_with_the_chosen_model(client, monkeypatch):
     doc = r.json()["id"]
     client.post(f"/collections/guidemodel/documents/{doc}/guide?model=local:llama3.2:3b", headers=auth("nora"))
     assert seen == ["local:gemma3:4b", None, "local:llama3.2:3b"]  # an invalid model falls back to the default
+
+
+def test_ollama_requests_use_the_native_api_with_a_fixed_context(monkeypatch):
+    """Ollama's OpenAI endpoint cannot set num_ctx (4096 by default drops the sources from long prompts)."""
+    import httpx
+
+    from abstain_api.llm import OpenAICompatChat
+    from abstain_api.settings import get_settings
+
+    sent = {}
+
+    def fake_post(url, json, timeout):
+        sent.update(url=url, body=json)
+        return httpx.Response(200, json={"message": {"content": "ALEX: Hi", "thinking": "long"}, "done": True})
+
+    monkeypatch.setattr(httpx, "post", fake_post)
+    s = get_settings().model_copy(update={"llm_base_url": "http://host.docker.internal:11434/v1", "ollama_url": None})
+    c = OpenAICompatChat(s, model="deepseek-r1:1.5b", reasoning=True, base_url=s.llm_base_url)
+    assert c.chat([{"role": "user", "content": "q"}], 900) == "ALEX: Hi"
+    assert sent["url"] == "http://host.docker.internal:11434/api/chat" and sent["body"]["think"] is True
+    assert sent["body"]["options"]["num_ctx"] == s.ollama_num_ctx and sent["body"]["options"]["num_predict"] > 900
+    vllm = OpenAICompatChat(s, model="x", base_url="http://vllm:8000/v1")
+    assert not vllm.is_ollama
