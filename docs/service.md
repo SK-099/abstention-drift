@@ -27,7 +27,8 @@ already exist in this folder: `checkpoints/checker/best` (the S4 checker), `chec
 
 ```powershell
 copy .env.example .env                       # defaults: Ollama on the host, AUTH_MODE=dev
-docker compose up -d --build                 # API, worker, beat, Postgres, Redis, Qdrant, Langfuse (+ SeaweedFS S3), Prometheus, Grafana
+docker compose up -d --build                 # light: API, worker, web, Postgres, Redis, Qdrant
+docker compose --profile full up -d         # + beat, Langfuse (+ ClickHouse, SeaweedFS S3), Prometheus, Grafana
 docker compose run --rm api python service/scripts/migrate_to_qdrant.py --index-dir /indexes --snapshot
 ```
 
@@ -37,8 +38,8 @@ and adds the sparse BM25 vectors; it takes a few minutes. Then:
 | What | Where |
 | --- | --- |
 | API + OpenAPI docs | http://localhost:8000/docs |
-| Langfuse (login `admin@example.com` / `change-me-please`) | http://localhost:3001 |
-| Grafana (admin / admin), dashboard "Abstention-aware RAG" | http://localhost:3002 |
+| Langfuse (`--profile full`; login `admin@example.com` / `change-me-please`) | http://localhost:3001 |
+| Grafana (`--profile full`; admin / admin), dashboard "Abstention-aware RAG" | http://localhost:3002 |
 | Prometheus | http://localhost:9090 |
 | Qdrant dashboard | http://localhost:6333/dashboard |
 

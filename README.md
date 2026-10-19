@@ -104,7 +104,8 @@ Clerk/Auth.js JWT auth, rate limits and prompt-injection screening, Langfuse tra
 Prometheus/Grafana, Sentry, and a CI quality gate on a fixed MTRAG-UN sample. One command starts it:
 
 ```bash
-cp .env.example .env && docker compose up -d --build     # Ollama stays native on the host
+cp .env.example .env && docker compose up -d --build     # light stack; Ollama stays native on the host
+# docker compose --profile full up -d   adds Langfuse, Prometheus, Grafana, nightly eval (~3 GB more RAM)
 ```
 
 See [docs/service.md](docs/service.md) for the API, deployment options (Fly.io/Render, Kubernetes + vLLM,

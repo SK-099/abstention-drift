@@ -1,22 +1,40 @@
 """Langfuse tracing of every LangGraph step and LLM call (LangChain callback handler).
-Enabled when LANGFUSE_PUBLIC_KEY / LANGFUSE_SECRET_KEY are set."""
+Enabled when LANGFUSE_PUBLIC_KEY / LANGFUSE_SECRET_KEY are set and the Langfuse host is reachable (the light
+compose stack does not run Langfuse; then tracing is off instead of every request waiting on a dead host)."""
 
 from __future__ import annotations
 
 import logging
 import os
+import socket
+from urllib.parse import urlparse
 
 from .settings import Settings
 
 log = logging.getLogger(__name__)
 _handler = None
+_disabled = False
+
+
+def _reachable(url: str) -> bool:
+    u = urlparse(url)
+    try:
+        socket.create_connection((u.hostname, u.port or (443 if u.scheme == "https" else 80)), timeout=2).close()
+        return True
+    except OSError:
+        return False
 
 
 def langfuse_handler(s: Settings):
     global _handler
-    if not (s.langfuse_public_key and s.langfuse_secret_key):
+    global _disabled
+    if _disabled or not (s.langfuse_public_key and s.langfuse_secret_key):
         return None
     if _handler is None:
+        if s.langfuse_host and not _reachable(s.langfuse_host):
+            log.info("Langfuse at %s is not running: tracing off (start it with --profile full)", s.langfuse_host)
+            _disabled = True
+            return None
         os.environ.setdefault("LANGFUSE_PUBLIC_KEY", s.langfuse_public_key)
         os.environ.setdefault("LANGFUSE_SECRET_KEY", s.langfuse_secret_key)
         if s.langfuse_host:

@@ -1,8 +1,10 @@
-# Whole stack with one command:   docker compose up -d --build
+# Light stack (default, ~8 containers): docker compose up -d
+#   Notebook UI http://localhost:3000   API http://localhost:8000/docs   Qdrant http://localhost:6333/dashboard
 #
-#   API (FastAPI)      http://localhost:8000/docs      Langfuse   http://localhost:3001
-#   Grafana            http://localhost:3002           Prometheus http://localhost:9090
-#   Qdrant dashboard   http://localhost:6333/dashboard
+# Full stack (adds Langfuse + ClickHouse + S3, Prometheus, Grafana and the nightly-eval scheduler, ~3 GB more RAM):
+#   docker compose --profile full up -d
+#   Langfuse http://localhost:3001   Grafana http://localhost:3002   Prometheus http://localhost:9090
+# Audio overviews (Kokoro TTS on the CPU, ~1 GB): add --profile tts
 #
 # LLM: by default the API calls Ollama running natively on the host (Windows/macOS: Ollama app; models
 # stay on your GPU), via host.docker.internal. Alternatives (set LLM_BASE_URL / LLM_MODEL in .env):
@@ -54,13 +56,14 @@ services:
   worker:
     <<: *app
     pull_policy: never              # built by the api service
-    command: ["celery", "-A", "abstain_api.worker", "worker", "--loglevel=INFO", "--pool=threads", "--concurrency=2"]
+    command: ["celery", "-A", "abstain_api.worker", "worker", "--loglevel=INFO", "--pool=threads", "--concurrency=${WORKER_CONCURRENCY:-1}"]
     healthcheck: { disable: true }
     depends_on:
       migrate: { condition: service_completed_successfully }
       redis: { condition: service_healthy }
 
   beat:
+    profiles: [full]
     <<: *app
     pull_policy: never              # built by the api service
     command: ["celery", "-A", "abstain_api.worker", "beat", "--loglevel=INFO", "--schedule=/data/celerybeat-schedule"]
@@ -121,6 +124,7 @@ services:
 
   # ------------------------------------------------------------------ LLMOps: Langfuse v3 (tracing, prompts)
   langfuse-web:
+    profiles: [full]
     image: langfuse/langfuse:3
     ports: ["3001:3000"]
     environment: &langfuse-env
@@ -166,6 +170,7 @@ services:
     restart: unless-stopped
 
   langfuse-worker:
+    profiles: [full]
     image: langfuse/langfuse-worker:3
     environment: *langfuse-env
     depends_on:
@@ -176,6 +181,7 @@ services:
     restart: unless-stopped
 
   clickhouse:
+    profiles: [full]
     image: clickhouse/clickhouse-server:25.3
     user: "101:101"
     environment: { CLICKHOUSE_DB: default, CLICKHOUSE_USER: clickhouse, CLICKHOUSE_PASSWORD: clickhouse }
@@ -185,6 +191,7 @@ services:
 
   # S3-compatible blob store for Langfuse (MinIO images were removed from Docker Hub in 2026): SeaweedFS
   s3:
+    profiles: [full]
     image: chrislusf/seaweedfs:latest
     entrypoint: sh
     command:
@@ -201,6 +208,7 @@ services:
     restart: unless-stopped
 
   s3-init:                                         # creates the "langfuse" bucket once S3 answers, then exits
+    profiles: [full]
     image: amazon/aws-cli:latest
     entrypoint: sh
     command: -c 'for i in $$(seq 1 60); do aws s3 mb s3://langfuse --endpoint-url http://s3:8333 2>&1 | grep -qiE "make_bucket|BucketAlready" && exit 0; sleep 2; done; exit 1'
@@ -213,6 +221,7 @@ services:
 
   # ------------------------------------------------------------------ metrics: OpenTelemetry -> Prometheus -> Grafana
   prometheus:
+    profiles: [full]
     image: prom/prometheus:v3.5.0
     command: ["--config.file=/etc/prometheus/prometheus.yml", "--storage.tsdb.retention.time=30d"]
     ports: ["9090:9090"]
@@ -223,6 +232,7 @@ services:
     restart: unless-stopped
 
   grafana:
+    profiles: [full]
     image: grafana/grafana:12.1.0
     ports: ["3002:3000"]
     environment:
