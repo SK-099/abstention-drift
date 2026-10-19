@@ -60,18 +60,18 @@ class OllamaNativeChat:
         think: bool = False,
         min_ctx: int = 4096,
         max_ctx: int = 8192,
+        large: bool = False,
     ):
         self.base, self.model, self.options, self.keep_alive, self.timeout = base, model, options, keep_alive, timeout
         self.think, self.min_ctx, self.max_ctx = think, min_ctx, max(min_ctx, max_ctx)
+        self.large = large
 
-    def num_ctx(self, msgs) -> int:
-        """The small window (Ollama's usual 4096) whenever the prompt and answer fit, the large one only for long
-        Studio prompts and thinking models. A large window costs GPU memory on every request (1.6 GB at 8192
-        tokens for a model like smollm2) and pushes layers to the CPU, so chat stays on the small one. Only two
-        sizes, because Ollama reloads the model whenever the size changes."""
-        chars = sum(len(str(m.content)) for m in msgs)
-        need = chars / 3 + self.options.get("num_predict", 512) + 200  # ~3 characters per token, generous
-        return self.min_ctx if need <= self.min_ctx else self.max_ctx
+    def num_ctx(self, msgs=None) -> int:
+        """One window per client, never changing between the steps of a question: Ollama reloads the model
+        whenever num_ctx changes, which made a 5-step question take minutes. Chat uses the small window (as
+        before; a large one costs GPU memory and pushes layers of models like smollm2 to the CPU); Studio and
+        source guides (long prompts) and thinking models (long reasoning) use the large one."""
+        return self.max_ctx if self.large else self.min_ctx
 
     def _body(self, msgs, stream: bool) -> dict:
         body = {
@@ -126,7 +126,9 @@ class OpenAICompatChat:
         provider: str = "local",
         max_tokens_field: str = "max_tokens",
         reasoning: bool = False,
+        long_prompts: bool = False,
     ):
+        self.long_prompts = long_prompts  # Studio / source guides: Ollama's large context window
         self.s, self.retries, self.wait_s = settings, retries, wait_s
         self.model = model or settings.llm_model
         self.base_url = base_url or settings.llm_base_url
@@ -182,6 +184,7 @@ class OpenAICompatChat:
                     think=self.reasoning,
                     min_ctx=self.s.ollama_min_ctx,
                     max_ctx=self.s.ollama_num_ctx,
+                    large=self.long_prompts or self.reasoning,
                 )
                 return self._models[n]
             # "max_tokens" is understood by Ollama, vLLM, Groq, Together, OpenRouter, Anthropic and Gemini;

@@ -281,12 +281,16 @@ def test_ollama_requests_use_the_native_api_with_a_fixed_context(monkeypatch):
     c = OpenAICompatChat(s, model="deepseek-r1:1.5b", reasoning=True, base_url=s.llm_base_url)
     assert c.chat([{"role": "user", "content": "q"}], 900) == "ALEX: Hi"
     assert sent["url"] == "http://host.docker.internal:11434/api/chat" and sent["body"]["think"] is True
-    # a thinking model's budget does not fit the small window; a short chat prompt on a normal model does
+    # thinking models use the large window; normal models keep the small one for every chat step (a window
+    # that changes between steps makes Ollama reload the model each time); Studio clients use the large one
     assert sent["body"]["options"]["num_ctx"] == s.ollama_num_ctx and sent["body"]["options"]["num_predict"] > 900
-    OpenAICompatChat(s, model="smollm2:1.7b", base_url=s.llm_base_url).chat([{"role": "user", "content": "q"}], 300)
-    assert sent["body"]["options"]["num_ctx"] == s.ollama_min_ctx and "think" not in sent["body"]
-    long = [{"role": "user", "content": "x" * 12000}]
-    OpenAICompatChat(s, model="smollm2:1.7b", base_url=s.llm_base_url).chat(long, 900)
+    chat = OpenAICompatChat(s, model="smollm2:1.7b", base_url=s.llm_base_url)
+    for prompt in ("q", "x" * 12000):
+        chat.chat([{"role": "user", "content": prompt}], 300)
+        assert sent["body"]["options"]["num_ctx"] == s.ollama_min_ctx and "think" not in sent["body"]
+    OpenAICompatChat(s, model="smollm2:1.7b", base_url=s.llm_base_url, long_prompts=True).chat(
+        [{"role": "user", "content": "q"}], 900
+    )
     assert sent["body"]["options"]["num_ctx"] == s.ollama_num_ctx
     vllm = OpenAICompatChat(s, model="x", base_url="http://vllm:8000/v1")
     assert not vllm.is_ollama

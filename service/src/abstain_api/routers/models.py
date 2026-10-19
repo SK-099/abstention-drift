@@ -39,7 +39,7 @@ async def warm_model(body: dict, user: User = Depends(current_user)):
 
     from fastapi import HTTPException, status
 
-    from ..model_registry import ollama_base, split_id
+    from ..model_registry import is_reasoning, ollama_base, split_id
 
     s = get_settings()
     mid = str(body.get("model") or "")
@@ -61,7 +61,8 @@ async def warm_model(body: dict, user: User = Depends(current_user)):
                 "model": name,
                 "prompt": "",
                 "keep_alive": s.ollama_keep_alive,
-                "options": {"num_ctx": s.ollama_min_ctx},
+                # the same window the chat will use, so the chat does not reload the model
+                "options": {"num_ctx": s.ollama_num_ctx if is_reasoning(name) else s.ollama_min_ctx},
             },
             timeout=s.llm_timeout_s,
         )

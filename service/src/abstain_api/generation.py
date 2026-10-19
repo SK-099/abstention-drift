@@ -52,6 +52,7 @@ def get_llm(s: Settings, model_id: str | None = None):
             provider=c.provider,
             max_tokens_field=c.max_tokens_field,
             reasoning=c.reasoning,
+            long_prompts=True,
         )
     return llm
 
