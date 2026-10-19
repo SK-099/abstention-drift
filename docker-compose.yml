@@ -111,8 +111,9 @@ services:
 
   redis:
     image: redis:7-alpine
-    command: ["redis-server", "--appendonly", "yes"]
-    volumes: [redis-data:/data]
+    # only the Celery queue lives here (notebooks are in Postgres): no disk files, so a hard shutdown can
+    # never leave a corrupt append-only file that stops Redis from starting
+    command: ["redis-server", "--appendonly", "no", "--save", ""]
     healthcheck: { test: ["CMD", "redis-cli", "ping"], interval: 5s, retries: 20 }
     restart: unless-stopped
 
@@ -280,7 +281,6 @@ services:
 
 volumes:
   pg-data: {}
-  redis-data: {}
   qdrant-data: {}
   qdrant-snapshots: {}
   clickhouse-data: {}
