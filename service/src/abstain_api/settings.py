@@ -37,7 +37,8 @@ class Settings(BaseSettings):
     # context window for every Ollama request. Ollama's own default (4096) is too small for the Studio prompts
     # and a thinking model's reasoning: the start of the prompt (the sources!) is silently dropped. All requests
     # use the same value, otherwise Ollama reloads the model whenever it changes.
-    ollama_num_ctx: int = 8192
+    ollama_num_ctx: int = 8192  # large window: long Studio prompts, thinking models
+    ollama_min_ctx: int = 4096  # small window: chat questions (5 passages) fit, and it keeps the model on the GPU
     ollama_native: bool = True  # False: talk to Ollama through its OpenAI endpoint (no context-window setting)
     ollama_keep_alive: str = "10m"
     openrouter_api_key: str | None = None  # one key: Claude, GPT, Gemini, Llama, Qwen, DeepSeek, Mistral, ...

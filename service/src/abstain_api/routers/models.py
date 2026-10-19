@@ -61,7 +61,7 @@ async def warm_model(body: dict, user: User = Depends(current_user)):
                 "model": name,
                 "prompt": "",
                 "keep_alive": s.ollama_keep_alive,
-                "options": {"num_ctx": s.ollama_num_ctx},
+                "options": {"num_ctx": s.ollama_min_ctx},
             },
             timeout=s.llm_timeout_s,
         )
