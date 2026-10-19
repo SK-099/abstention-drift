@@ -147,3 +147,34 @@ def test_podcast_scripts_in_other_formats():
     assert parse_script("ok") == []
     # Ollama's DeepSeek-R1 template opens <think> in the prompt: the output only closes it
     assert strip_thinking("I should write a script...\n</think>\nALEX: Hi") == "ALEX: Hi"
+
+
+def test_podcast_scripts_are_tidied_and_skip_reference_lists():
+    from abstain_api.generation import is_back_matter, sample_passages, tidy_script
+
+    def t(s, x):
+        return {"speaker": s, "text": x}
+
+    loop = [
+        t("ALEX", "Today: QPolypNet for polyp segmentation."),
+        t("SAM", "What does it add?"),
+        t("ALEX", "A quantum-inspired layer between the ResNet-50 encoder and the decoder."),
+        t("SAM", "That's a great point. What do you think is the most exciting aspect of this technology?"),
+        t("ALEX", "It reaches a Dice score of 0.942 on CVC-ClinicDB."),
+        t("SAM", "That's a great point. What do you think is the most exciting thing about this technology?"),
+        t("ALEX", "I think the most important takeaway"),
+    ]
+    got = [x["text"] for x in tidy_script(loop)]
+    assert got[-1].startswith("It reaches") and len(got) == 5  # repeated question and cut-off line dropped
+    words = "alpha beta gamma delta epsilon zeta theta kappa lambda sigma omega rho tau phi chi psi".split()
+    long = [
+        t("ALEX" if i % 2 else "SAM", f"{a} {b} {c} statement.")
+        for i, (a, b, c) in enumerate(zip(words * 3, words[1:] * 3, words[3:] * 3))
+    ]
+    assert len(tidy_script(long)) == 16
+
+    refs = {"section": "", "text": "[12] A. Smith et al. In Proceedings of CVPR (2023). [13] B. Lee et al. arXiv 2021."}
+    assert is_back_matter(refs) and is_back_matter({"section": "References", "text": "x"})
+    assert not is_back_matter({"section": "2. Method", "text": "We use ResNet-50 (He et al. 2016)."})
+    body = {"section": "2. Method", "text": "The encoder is ResNet-50."}
+    assert "Smith" not in sample_passages([body, refs], 2000)

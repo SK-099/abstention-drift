@@ -74,8 +74,23 @@ def clip_passages(passages: list[dict], max_chars: int) -> str:
     return "\n".join(out)
 
 
+_BACKMATTER = re.compile(r"reference|bibliograph|acknowledg|funding|author contributions|conflicts? of interest", re.I)
+_CITATION = re.compile(r"\bet al\.|\bIn Proceedings\b|\barXiv\b|\bdoi\b|\bpp\. \d|\(\d{4}\)|\b(?:19|20)\d{2}\.\s", re.I)
+
+
+def is_back_matter(p: dict) -> bool:
+    """Reference lists and acknowledgements: small models read them out as if they were content."""
+    if _BACKMATTER.search(p.get("section") or ""):
+        return True
+    return len(_CITATION.findall(p.get("text") or "")) >= 4
+
+
 def sample_passages(passages: list[dict], max_chars: int) -> str:
     """Evenly spread passages over a long document (beginning, middle, end) up to max_chars."""
+    body = [p for p in passages if not is_back_matter(p)]
+    passages = body or passages
+    if not passages:
+        return ""
     if sum(len(p["text"]) for p in passages) <= max_chars:
         return clip_passages(passages, max_chars)
     avg = max(1, sum(len(p["text"]) for p in passages) // len(passages))
@@ -441,6 +456,28 @@ def parse_script(text: str) -> list[dict]:
     return [{"speaker": "ALEX" if i % 2 == 0 else "SAM", "text": p} for i, p in enumerate(paras[:16])]
 
 
+def tidy_script(turns: list[dict], max_turns: int = 16) -> list[dict]:
+    """Small models ignore "10 to 14 turns": they repeat themselves ("That's a great point. What do you
+    think...") until the token budget cuts the last line off. Keep the episode short and clean: drop turns that
+    nearly repeat an earlier one, cap the length, never end on a cut-off sentence or an unanswered question."""
+
+    def words(s: str) -> set[str]:
+        return set(re.findall(r"[a-z]{3,}", s.lower()))
+
+    out: list[dict] = []
+    for turn in turns:
+        w = words(turn["text"])
+        if w and any(len(w & words(o["text"])) / len(w | words(o["text"])) >= 0.6 for o in out):
+            continue
+        out.append(turn)
+    if out and not re.search(r"[.!?\"'\u201d)]\s*$", out[-1]["text"]):  # cut off by the token budget
+        out.pop()
+    out = out[:max_turns]
+    while len(out) > 2 and out[-1]["text"].rstrip().endswith("?"):
+        out.pop()
+    return out
+
+
 def structure(kind: str, text: str) -> tuple[str, dict]:
     """(markdown shown / exported, structured data for the interactive views)."""
     text = (text or "").strip()
@@ -470,6 +507,6 @@ def structure(kind: str, text: str) -> tuple[str, dict]:
         tree = parse_mindmap(text)
         return text, {"tree": tree}
     if kind == "audio":
-        turns = parse_script(text)
+        turns = tidy_script(parse_script(text))
         return "\n\n".join(f"**{t['speaker'].title()}:** {t['text']}" for t in turns) or text, {"turns": turns}
     return text, {}
