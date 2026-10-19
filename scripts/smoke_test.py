@@ -385,6 +385,10 @@ def model_tests(api: Api, run: Run, args, cid: str, mid: str, audio: bool):
             if conversation:
                 body["conversation_id"] = conversation
             final, error, steps, secs = api.chat(body, args.chat_timeout)
+            if error and not final and not error.startswith("HTTP") and "timed out" not in error.lower():
+                print(f"  ... connection dropped ({error[:60]}), asking again", flush=True)
+                time.sleep(10)
+                final, error, steps, secs = api.chat(body, args.chat_timeout)
             if error or not final:
                 return "FAIL", error or "no final answer", {}
             cites = final.get("citations") or []
@@ -393,7 +397,9 @@ def model_tests(api: Api, run: Run, args, cid: str, mid: str, audio: bool):
                      "abstained_by": final.get("abstained_by"), "conversation_id": final.get("conversation_id"),
                      "message_id": final.get("message_id"), "steps": steps, "answer": (final.get("answer") or "")[:400]}
             got = final["decision"]
-            if expect == "abstain":
+            if got == "clarify":  # the agent asked which document / what is meant: a valid, cautious outcome
+                status = "WARN" if expect == "answer" and label != "follow_up" else "PASS"
+            elif expect == "abstain":
                 status = "PASS" if got == "abstain" else "WARN"
             else:
                 status = "PASS" if got == "answer" and (cites or label in ("overview", "compare")) else "WARN"
@@ -527,7 +533,9 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--pdfs", nargs="+", default=[], help="2-3 PDF files (papers work best)")
     ap.add_argument("--models", nargs="*", help="model names (e.g. qwen2.5:3b) or ids; default: all local models")
-    ap.add_argument("--api", default=os.environ.get("API_URL", "http://localhost:8000"))
+    # 127.0.0.1, not localhost: on Windows "localhost" tries IPv6 first, and Docker Desktop's IPv6 port
+    # forwarding drops connections now and then
+    ap.add_argument("--api", default=os.environ.get("API_URL", "http://127.0.0.1:8000"))
     ap.add_argument("--token", default=os.environ.get("API_TOKEN"), help="bearer token (only if AUTH_MODE is not dev)")
     ap.add_argument("--quick", action="store_true", help="per-PDF questions on the first PDF only")
     ap.add_argument("--studio", nargs="*", default=["faq", "flashcards"],
