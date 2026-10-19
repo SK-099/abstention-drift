@@ -42,24 +42,35 @@ def generate_artifact(session: Session, artifact_id: str, s: Settings, store: Qd
         session.commit()
         from .model_registry import REQUEST_MODEL
 
+        def unreadable(md: str, data: dict) -> bool:
+            return {
+                "faq": not data.get("items"),
+                "flashcards": not data.get("cards"),
+                "quiz": not data.get("questions"),
+                "audio": not data.get("turns"),
+                "mindmap": not data.get("tree", {}).get("children"),
+            }.get(a.kind, not md.strip())
+
         tok = REQUEST_MODEL.set(a.model)
         try:
-            text = run_studio(get_llm(s, a.model), a.kind, material, a.instructions)
+            llm = get_llm(s, a.model)
+            text = run_studio(llm, a.kind, material, a.instructions)
+            md, data = structure(a.kind, text)
+            if unreadable(md, data):  # small models drift from the format: one more try with a reminder
+                log.info("studio %s %s: output not in the format (%d chars), retrying", a.kind, artifact_id, len(text))
+                a.data = {**a.data, "stage": "retrying"}
+                session.commit()
+                reminder = "Follow the required output format exactly, starting with the first line, no preamble."
+                text = run_studio(llm, a.kind, material, f"{a.instructions or ''}\n{reminder}".strip())
+                md, data = structure(a.kind, text)
         finally:
             REQUEST_MODEL.reset(tok)
-        md, data = structure(a.kind, text)
         nb = session.get(Collection, a.collection_id)
         a.title = a.title or f"{KINDS[a.kind]} · {nb.name if nb else a.collection_id}"
         a.content, a.data = md, {**data, "sources": sources_, "raw": text[:20000]}
-        empty = {
-            "faq": not data.get("items"),
-            "flashcards": not data.get("cards"),
-            "quiz": not data.get("questions"),
-            "audio": not data.get("turns"),
-            "mindmap": not data.get("tree", {}).get("children"),
-        }.get(a.kind, not md.strip())
-        if empty:
-            raise ValueError("the model's output could not be read; try again or choose a larger model")
+        if unreadable(md, data):
+            why = "it returned nothing (a thinking model may have used its whole budget thinking)" if not text.strip() else "it did not follow the format"
+            raise ValueError(f"the model's output could not be read: {why}. Try again or choose a larger model")
         if a.kind == "audio":
             a.data = {**a.data, "stage": "speaking", "progress": [0, len(data["turns"])]}
             session.commit()  # the script can be read while it is being spoken

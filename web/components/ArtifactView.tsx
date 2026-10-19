@@ -390,17 +390,19 @@ function Progress({ a }: { a: Artifact }) {
   const model = a.model ? a.model.split(":").slice(1).join(":") : "the default model";
   const n = (a.data.sources || []).length;
   const speaking = a.data.stage === "speaking";
+  const writing = a.data.stage === "writing" || a.data.stage === "retrying";
+  const again = a.data.stage === "retrying" ? " (second try: the first was not in the right format)" : "";
   const [done, total] = a.data.progress || [0, 0];
   const steps =
     a.kind === "audio"
       ? [
           ["Reading your sources", !a.data.stage],
-          [`Writing the script with ${model}`, a.data.stage === "writing"],
+          [`Writing the script with ${model}${again}`, writing],
           ["Speaking it with Kokoro", speaking],
         ]
       : [
           ["Reading your sources", !a.data.stage],
-          [`Writing with ${model}`, a.data.stage === "writing"],
+          [`Writing with ${model}${again}`, writing],
         ];
   const current = steps.findIndex(([, on]) => on);
   return (

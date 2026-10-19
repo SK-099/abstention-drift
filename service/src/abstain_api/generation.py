@@ -352,18 +352,62 @@ def parse_mindmap(text: str) -> dict:
     return root
 
 
+_SPEAKER = re.compile(
+    r"^\s*(?:[-*\u2022>]\s*)?[*_]*\s*\[?([A-Za-z][A-Za-z0-9 .'-]{0,24}?)\]?\s*(?:\([^)]{0,40}\))?\s*[*_]*\s*[:\-\u2013\u2014]\s*[*_]*\s*(.+)$"
+)
+_FIRST = {"ALEX", "HOST 1", "HOST1", "HOST A", "HOSTA", "HOST", "SPEAKER 1", "SPEAKER1", "SPEAKER A", "PERSON 1", "A"}
+_SECOND = {"SAM", "HOST 2", "HOST2", "HOST B", "HOSTB", "GUEST", "SPEAKER 2", "SPEAKER2", "SPEAKER B", "PERSON 2", "B"}
+_NOT_NAMES = {"NOTE", "TITLE", "EPISODE", "SOURCES", "SOURCE", "RECAP", "SUMMARY", "INTRO", "OUTRO", "TOPIC", "SCENE"}
+
+
+def _clean_turn(said: str) -> str:
+    said = re.sub(r"\[[^\]]*\]|\([^)]*(?:laugh|music|pause|sigh|smil|excit|chuckl)[^)]*\)|\*[^*]+\*", "", said)
+    said = said.replace("**", "").replace("__", "").strip(' "\u201c\u201d')
+    return re.sub(r"\s+([.,!?;:])", r"\1", re.sub(r"\s{2,}", " ", said)).strip()
+
+
 def parse_script(text: str) -> list[dict]:
-    out = []
+    """Two-host script -> [{"speaker": "ALEX"|"SAM", "text": ...}].
+
+    Small models rarely keep to "ALEX: ..." exactly: "**Alex (excited):**", "Host 1 -", "Speaker 2:" or two
+    names of their own are all read. Without any speaker labels, the paragraphs are shared out alternately so
+    the episode can still be spoken."""
+    rows = []
     for line in text.splitlines():
-        m = re.match(r"^\s*\**\s*(ALEX|SAM|HOST\s*[12AB])\s*\**\s*:\s*\**\s*(.+)$", line.strip(), re.I)
-        if m:
-            who = m.group(1).upper()
-            speaker = "ALEX" if who in ("ALEX", "HOST 1", "HOST1", "HOST A", "HOSTA") else "SAM"
-            said = re.sub(r"\[[^\]]*\]|\([^)]*(?:laugh|music|pause)[^)]*\)|\*[^*]+\*", "", m.group(2)).strip()
-            said = re.sub(r"\s+([.,!?;:])", r"\1", re.sub(r"\s{2,}", " ", said))
-            if said:
-                out.append({"speaker": speaker, "text": said})
-    return out
+        m = _SPEAKER.match(line.strip())
+        if not m:
+            continue
+        name = re.sub(r"\s+", " ", m.group(1)).strip(" .'-").upper()
+        said = _clean_turn(m.group(2))
+        if not said or name in _NOT_NAMES or len(name.split()) > 3 or len(said) < 2:
+            continue
+        rows.append((name, said))
+    # the two most frequent names are the hosts (a stray "Note:" line is ignored)
+    counts: dict[str, int] = {}
+    for name, _ in rows:
+        counts[name] = counts.get(name, 0) + 1
+    hosts = [n for n, c in sorted(counts.items(), key=lambda kv: -kv[1]) if c >= 1][:2]
+    out = []
+    if len(hosts) == 2 or (len(hosts) == 1 and hosts[0] in _FIRST | _SECOND):
+        first = next((h for h in hosts if h in _FIRST), None) or next(
+            (h for h in hosts if h not in _SECOND), hosts[0]
+        )
+        for name, said in rows:
+            if name in hosts:
+                out.append({"speaker": "ALEX" if name == first else "SAM", "text": said})
+    if len(out) >= 2:
+        return out
+    # no usable labels: alternate the paragraphs (or pairs of sentences) between the two voices
+    body = re.sub(r"(?m)^\s*#+.*$", "", text)
+    paras = [_clean_turn(p) for p in re.split(r"\n\s*\n", body)]
+    paras = [p for p in paras if len(p.split()) >= 4]
+    if len(paras) < 3:
+        sents = re.split(r"(?<=[.!?])\s+", " ".join(paras))
+        paras = [" ".join(sents[i : i + 2]) for i in range(0, len(sents), 2)]
+        paras = [p for p in paras if len(p.split()) >= 4]
+    if len(paras) < 2:
+        return []
+    return [{"speaker": "ALEX" if i % 2 == 0 else "SAM", "text": p} for i, p in enumerate(paras[:16])]
 
 
 def structure(kind: str, text: str) -> tuple[str, dict]:

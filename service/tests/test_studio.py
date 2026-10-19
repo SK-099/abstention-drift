@@ -129,3 +129,21 @@ def test_parsers_tolerate_messy_model_output():
         and "[2] B" in m
         and src[1] == {"index": 2, "document_id": "d2", "title": "B"}
     )
+
+
+def test_podcast_scripts_in_other_formats():
+    """Small models (DeepSeek-R1 1.5B, Llama 1B) rarely keep to "ALEX: ..." exactly."""
+    from abstain_api.generation import parse_script
+    from abstain_api.llm import strip_thinking
+
+    def who(t):
+        return [x["speaker"] for x in parse_script(t)]
+
+    assert who("**Alex (excited):** Welcome!\n**Sam:** What is it?\nAlex - The Transformer.") == ["ALEX", "SAM", "ALEX"]
+    assert who("Host 1: Hi there.\nHost 2: Hello all.\nHost 1: Let us start.") == ["ALEX", "SAM", "ALEX"]
+    assert who("Title: Ep 1\nPriya: Today, attention.\nRavi: Why?\nPriya: It is fast.") == ["ALEX", "SAM", "ALEX"]
+    prose = "Attention is all you need here.\n\nIt drops recurrence for speed.\n\nIt set a new BLEU record then."
+    assert who(prose) == ["ALEX", "SAM", "ALEX"]
+    assert parse_script("ok") == []
+    # Ollama's DeepSeek-R1 template opens <think> in the prompt: the output only closes it
+    assert strip_thinking("I should write a script...\n</think>\nALEX: Hi") == "ALEX: Hi"

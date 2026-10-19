@@ -19,7 +19,11 @@ _THINK = re.compile(r"<think>.*?(</think>|$)", re.S | re.I)
 
 def strip_thinking(text: str) -> str:
     """Remove a reasoning model's <think>...</think> block (an unclosed one means it ran out of tokens)."""
-    return _THINK.sub("", text or "").strip()
+    text = _THINK.sub("", text or "")
+    # some templates (DeepSeek-R1 in Ollama) open the block in the prompt: only "</think>" is in the output
+    if "</think>" in text.lower():
+        text = re.split(r"</think>", text, flags=re.I)[-1]
+    return text.strip()
 
 
 def visible_text(text: str) -> str:
@@ -63,7 +67,7 @@ class OpenAICompatChat:
             if self.provider == "local" and self.s.llm_seed is not None:
                 kw["seed"] = self.s.llm_seed  # deterministic research model
             if self.reasoning:  # reasoning models spend tokens on thinking and reject temperature 0
-                n = max(n, self.s.reasoning_max_tokens)
+                n = n + self.s.reasoning_max_tokens  # the thinking budget comes on top of the answer's
             else:
                 kw["temperature"] = 0
             headers = (
