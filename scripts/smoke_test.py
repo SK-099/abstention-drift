@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import http.client
 import json
 import mimetypes
 import os
@@ -69,6 +70,20 @@ class Api:
         return urllib.request.Request(self.base + path, data=data, headers=h, method=method), timeout
 
     def call(self, method, path, body=None, headers=None, timeout=60, raw=False):
+        """GETs are retried when the API drops the connection (it restarts, or is busy loading models)."""
+        tries = 8 if method == "GET" else 1
+        for attempt in range(tries):
+            try:
+                return self._call(method, path, body, headers, timeout, raw)
+            except ApiError:
+                raise
+            except (OSError, http.client.HTTPException) as e:  # reset, refused, timeout, remote disconnected
+                if attempt == tries - 1:
+                    raise
+                print(f"  ... API not answering ({type(e).__name__}), retrying in 15 s", flush=True)
+                time.sleep(15)
+
+    def _call(self, method, path, body=None, headers=None, timeout=60, raw=False):
         req, timeout = self._req(method, path, body, headers, timeout)
         try:
             with urllib.request.urlopen(req, timeout=timeout) as r:
@@ -571,6 +586,10 @@ def main():
                 write_report(run, models)
     except KeyboardInterrupt:
         print("\nStopped. Continue later with:  python scripts/smoke_test.py --resume", run.out)
+    except Exception as e:  # the API went away for good: keep what was done, say how to continue
+        print(f"\nStopped by an error: {type(e).__name__}: {e}\n"
+              "Check the stack (docker compose ps; docker compose logs --tail 50 api worker), then continue with:\n"
+              f"  python scripts/smoke_test.py --resume {run.out}")
     totals = write_report(run, models)
     print(f"\nDone in {(time.time() - t0) / 60:.0f} min: {totals['PASS']} passed, {totals['WARN']} warnings, "
           f"{totals['FAIL']} failed\nReport: {run.out / 'report.md'}")
