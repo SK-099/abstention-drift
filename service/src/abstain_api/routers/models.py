@@ -57,7 +57,12 @@ async def warm_model(body: dict, user: User = Depends(current_user)):
         t0 = time.perf_counter()
         r = httpx.post(
             f"{ollama_base(s)}/api/generate",
-            json={"model": name, "prompt": "", "keep_alive": "10m"},
+            json={
+                "model": name,
+                "prompt": "",
+                "keep_alive": s.ollama_keep_alive,
+                "options": {"num_ctx": s.ollama_num_ctx},
+            },
             timeout=s.llm_timeout_s,
         )
         r.raise_for_status()

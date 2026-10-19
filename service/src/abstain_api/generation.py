@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 import re
+from collections import Counter
 
 from .settings import Settings
 
@@ -251,6 +252,37 @@ def notebook_material(docs: list[tuple[str, str, dict | None, list[dict]]], max_
     return "\n\n".join(blocks)[: max_chars + 2000], sources_
 
 
+_FILLER = set(
+    """about above after again against also although always among another anything around because before being
+    below between both cannot could different during each either enough especially every example exactly first
+    following further great having however important including interesting into itself just known later least
+    less like little made make many maybe might more most much must never next often other others over really
+    right same should since some something still such than thank thanks that their them then there these they
+    thing things think this those though three through today together under until using very want well were what
+    when where whether which while will with within without would years your yeah okay absolutely welcome episode
+    joining listen listeners podcast show talk talking discuss going sounds agree fascinating amazing alex sam
+    sources source document documents paper study research question questions answer answers point points""".split()
+)
+
+
+def _stems(text: str) -> list[str]:
+    return [w[:6] for w in re.findall(r"[a-z]{5,}", (text or "").lower()) if w not in _FILLER]
+
+
+def on_topic(output: str, material: str) -> bool:
+    """False when a small model wrote about something else entirely (its context lost the sources): it uses
+    almost none of the material's most frequent words and few of its words occur in the material at all."""
+    out = _stems(output)
+    if len(out) < 15:
+        return True  # too short to judge
+    mat = _stems(material)
+    have = set(mat)
+    top = [w for w, _ in Counter(mat).most_common(25)]
+    mentioned = sum(1 for w in top if w in set(out))
+    overlap = sum(1 for w in out if w in have) / len(out)
+    return mentioned >= 3 or overlap >= 0.45
+
+
 def run_studio(llm, kind: str, material: str, instructions: str | None = None) -> str:
     prompt, max_tokens = STUDIO_PROMPTS[kind]
     system = "You turn the user's sources into study and briefing material. Use ONLY facts from the sources."
@@ -389,9 +421,7 @@ def parse_script(text: str) -> list[dict]:
     hosts = [n for n, c in sorted(counts.items(), key=lambda kv: -kv[1]) if c >= 1][:2]
     out = []
     if len(hosts) == 2 or (len(hosts) == 1 and hosts[0] in _FIRST | _SECOND):
-        first = next((h for h in hosts if h in _FIRST), None) or next(
-            (h for h in hosts if h not in _SECOND), hosts[0]
-        )
+        first = next((h for h in hosts if h in _FIRST), None) or next((h for h in hosts if h not in _SECOND), hosts[0])
         for name, said in rows:
             if name in hosts:
                 out.append({"speaker": "ALEX" if name == first else "SAM", "text": said})

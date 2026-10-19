@@ -9,7 +9,7 @@ from pathlib import Path
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from .generation import KINDS, get_llm, notebook_material, run_studio, structure
+from .generation import KINDS, get_llm, notebook_material, on_topic, run_studio, structure
 from .models import Artifact, Collection, Document
 from .retrieval import QdrantStore, get_store
 from .settings import Settings
@@ -43,6 +43,8 @@ def generate_artifact(session: Session, artifact_id: str, s: Settings, store: Qd
         from .model_registry import REQUEST_MODEL
 
         def unreadable(md: str, data: dict) -> bool:
+            if md.strip() and not on_topic(text, material):
+                return True
             return {
                 "faq": not data.get("items"),
                 "flashcards": not data.get("cards"),
@@ -60,7 +62,10 @@ def generate_artifact(session: Session, artifact_id: str, s: Settings, store: Qd
                 log.info("studio %s %s: output not in the format (%d chars), retrying", a.kind, artifact_id, len(text))
                 a.data = {**a.data, "stage": "retrying"}
                 session.commit()
-                reminder = "Follow the required output format exactly, starting with the first line, no preamble."
+                reminder = (
+                    "Follow the required output format exactly, starting with the first line, no preamble. "
+                    "Talk ONLY about the numbered sources above, not about any other topic."
+                )
                 text = run_studio(llm, a.kind, material, f"{a.instructions or ''}\n{reminder}".strip())
                 md, data = structure(a.kind, text)
         finally:
@@ -69,7 +74,12 @@ def generate_artifact(session: Session, artifact_id: str, s: Settings, store: Qd
         a.title = a.title or f"{KINDS[a.kind]} · {nb.name if nb else a.collection_id}"
         a.content, a.data = md, {**data, "sources": sources_, "raw": text[:20000]}
         if unreadable(md, data):
-            why = "it returned nothing (a thinking model may have used its whole budget thinking)" if not text.strip() else "it did not follow the format"
+            if not text.strip():
+                why = "it returned nothing (a thinking model may have used its whole budget thinking)"
+            elif not on_topic(text, material):
+                why = "it wrote about something that is not in your sources"
+            else:
+                why = "it did not follow the format"
             raise ValueError(f"the model's output could not be read: {why}. Try again or choose a larger model")
         if a.kind == "audio":
             a.data = {**a.data, "stage": "speaking", "progress": [0, len(data["turns"])]}

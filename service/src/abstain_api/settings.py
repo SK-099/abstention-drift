@@ -34,6 +34,12 @@ class Settings(BaseSettings):
     # Model ids are "<provider>:<model>", e.g. "ollama:qwen2.5:3b", "openrouter:anthropic/claude-sonnet-4.5".
     default_model: str | None = None  # default: "local:" + LLM_MODEL (the calibrated research model)
     ollama_url: str | None = None  # Ollama server for model discovery (default: derived from LLM_BASE_URL)
+    # context window for every Ollama request. Ollama's own default (4096) is too small for the Studio prompts
+    # and a thinking model's reasoning: the start of the prompt (the sources!) is silently dropped. All requests
+    # use the same value, otherwise Ollama reloads the model whenever it changes.
+    ollama_num_ctx: int = 8192
+    ollama_native: bool = True  # False: talk to Ollama through its OpenAI endpoint (no context-window setting)
+    ollama_keep_alive: str = "10m"
     openrouter_api_key: str | None = None  # one key: Claude, GPT, Gemini, Llama, Qwen, DeepSeek, Mistral, ...
     openai_api_key: str | None = None
     anthropic_api_key: str | None = None

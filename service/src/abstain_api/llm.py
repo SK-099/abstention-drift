@@ -58,6 +58,12 @@ class OpenAICompatChat:
         self.api_key = api_key or settings.llm_api_key
         self.provider, self.max_tokens_field, self.reasoning = provider, max_tokens_field, reasoning
         self._models: dict[int, object] = {}
+        # local models served by Ollama (not a local vLLM / LM Studio server)
+        self.is_ollama = (
+            provider == "local"
+            and settings.ollama_native
+            and (":11434" in self.base_url or "ollama" in self.base_url.lower())
+        )
 
     def _model(self, n: int):
         if n not in self._models:
@@ -75,6 +81,28 @@ class OpenAICompatChat:
                 if self.provider == "openrouter"
                 else None
             )
+            if self.is_ollama:
+                # Ollama's native API, so the context window can be set (its OpenAI endpoint cannot)
+                from langchain_ollama import ChatOllama
+
+                from .model_registry import ollama_base
+
+                timeout = (
+                    max(self.s.llm_timeout_s, self.s.reasoning_timeout_s) if self.reasoning else self.s.llm_timeout_s
+                )
+                self._models[n] = ChatOllama(
+                    model=self.model,
+                    base_url=ollama_base(self.s.model_copy(update={"llm_base_url": self.base_url}))
+                    if self.base_url != self.s.llm_base_url
+                    else ollama_base(self.s),
+                    num_ctx=self.s.ollama_num_ctx,
+                    num_predict=n,
+                    keep_alive=self.s.ollama_keep_alive,
+                    reasoning=True if self.reasoning else None,  # thinking goes to its own field, not the answer
+                    client_kwargs={"timeout": timeout},
+                    **kw,
+                )
+                return self._models[n]
             # "max_tokens" is understood by Ollama, vLLM, Groq, Together, OpenRouter, Anthropic and Gemini;
             # OpenAI's newer models need "max_completion_tokens"
             self._models[n] = ChatOpenAI(

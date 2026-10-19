@@ -220,3 +220,68 @@ def test_paper_headings_without_dots():
     assert not any("heads" in p or "Base model" in p for p in paths)
     body = dict(split_sections(text, markdown=False))
     assert "8 heads were used" in body["3. Model Architecture › 3.1 Encoder and Decoder Stacks"]
+
+
+def test_questions_about_a_section_get_that_sections_passages():
+    """ "Explain the experiments" should read the Experiments section, not the abstract that mentions everything."""
+    from abstain_api.retrieval import HybridQdrantRetriever, section_intent
+
+    assert section_intent("Explain the experiments of this paper").search("4. Experiments › 4.1 Setup")
+    assert section_intent("What were the results?").search("5 Results")
+    assert section_intent("When does the ferry leave?") is None
+
+    abstract = {
+        "document_id": "p0",
+        "title": "T",
+        "text": "We propose NQNN and run experiments.",
+        "section": "Abstract",
+    }
+    exp = [
+        {
+            "document_id": f"p{i}",
+            "passage_id": f"p{i}",
+            "seq": i,
+            "title": "T",
+            "text": f"Experiment detail {i}.",
+            "section": "4. Experiments",
+        }
+        for i in (7, 8)
+    ]
+
+    class Store:
+        def hybrid_search(self, *a, **k):
+            return [dict(abstract)]
+
+        def section_passages(self, collection, pattern, documents=None):
+            return [dict(p) for p in exp if pattern.search(p["section"])]
+
+    class Emb:
+        def embed_query(self, q):
+            return [0.0]
+
+    class Rer:
+        def scores(self, q, texts):
+            return [0.9 if "propose" in t else 0.2 for t in texts]
+
+    s = get_settings()
+    r = HybridQdrantRetriever(s, Store(), Emb(), Rer())
+    got = r.search("Explain the experiments of this paper", "c", k=3, documents=["d"])
+    assert [p["document_id"] for p in got] == ["p7", "p8", "p0"] and "seq" not in got[0]
+    assert [p["document_id"] for p in r.search("Who proposed it?", "c", k=3, documents=["d"])] == ["p0"]
+
+
+def test_off_topic_studio_output_is_caught():
+    from abstain_api.generation import on_topic
+
+    material = "[1] Ferries\nThe ferry to Helgoland leaves Cuxhaven at 10:30. The crossing takes two hours. " * 3
+    assert on_topic(
+        "ALEX: The Helgoland ferry leaves Cuxhaven at half past ten. SAM: And the crossing takes "
+        "about two hours, so ferries arrive around lunchtime at Helgoland harbour.",
+        material,
+    )
+    assert not on_topic(
+        "ALEX: Social media affects mental health. SAM: Studies link platforms with anxiety and "
+        "depression among teenagers, according to psychologists at several universities. ALEX: Parents worry "
+        "about screen time, smartphones and online bullying.",
+        material,
+    )

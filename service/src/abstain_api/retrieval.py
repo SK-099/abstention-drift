@@ -8,6 +8,7 @@ Sparse vectors carry BM25 term-frequency weights; Qdrant applies IDF itself (Mod
 
 from __future__ import annotations
 
+import logging
 import re
 import uuid
 import zlib
@@ -17,6 +18,8 @@ from collections.abc import Iterable
 import httpx
 
 from .settings import Settings
+
+log = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------- sparse BM25
 _STOP = set(
@@ -223,6 +226,38 @@ class QdrantStore:
             for p in res.points
         ]
 
+    def section_passages(self, collection: str, pattern: re.Pattern, documents=None, cap: int = 24) -> list[dict]:
+        """Passages whose section heading matches `pattern` ("4. Experiments › 4.2 Results"), reading order."""
+        from qdrant_client import models as m
+
+        must = [m.FieldCondition(key="collection", match=m.MatchValue(value=collection))]
+        if documents:
+            must.append(m.FieldCondition(key="source_document", match=m.MatchAny(any=list(documents))))
+        flt, ids, offset, seen = m.Filter(must=must), [], None, 0
+        while seen < 5000:  # payload-only scan: section names are short
+            pts, offset = self.client.scroll(
+                self.name, scroll_filter=flt, limit=512, offset=offset, with_payload=["section"], with_vectors=False
+            )
+            seen += len(pts)
+            ids += [q.id for q in pts if pattern.search((q.payload or {}).get("section") or "")]
+            if offset is None:
+                break
+        if not ids:
+            return []
+        pts = self.client.retrieve(self.name, ids[:400], with_payload=True)
+        out = [
+            {
+                "document_id": q.payload["passage_id"],
+                "title": q.payload.get("title", ""),
+                "text": q.payload["text"],
+                "seq": q.payload.get("seq"),
+                "passage_id": q.payload["passage_id"],
+                **{k: q.payload.get(k) for k in ("source_document", "page", "section") if q.payload.get(k) is not None},
+            }
+            for q in pts
+        ]
+        return sorted(out, key=_reading_order)[:cap]
+
     def document_passages(self, document_id: str) -> list[dict]:
         """All passages of one uploaded document, in reading order (for the source viewer)."""
         from qdrant_client import models as m
@@ -277,9 +312,59 @@ class HybridQdrantRetriever:
         cands = self.store.hybrid_search(
             query, self.embedder.embed_query(query), collection, self.s.rerank_top_n, documents=documents
         )
+        # "explain the experiments", "what were the results": the passages under that heading, not the abstract
+        # (which mentions every topic and wins plain similarity search)
+        pattern, in_section = section_intent(query), set()
+        if pattern is not None and hasattr(self.store, "section_passages"):
+            try:
+                hits = self.store.section_passages(collection, pattern, documents=documents)
+            except Exception as e:  # never let the extra lookup break a question
+                log.warning("section lookup failed: %s", e)
+                hits = []
+            have = {c["document_id"] for c in cands}
+            cands += [
+                {kk: v for kk, v in h.items() if kk not in ("seq", "passage_id")}
+                for h in hits
+                if h["document_id"] not in have
+            ]
+            in_section = {h["document_id"] for h in hits}
         scores = self.reranker.scores(query, [c["text"] for c in cands])
         ranked = sorted((dict(c, score=float(sc)) for c, sc in zip(cands, scores)), key=lambda p: -p["score"])
+        if in_section:
+            ranked = [p for p in ranked if p["document_id"] in in_section] + [
+                p for p in ranked if p["document_id"] not in in_section
+            ]
         return ranked[: k or self.s.final_k]
+
+
+_SECTION_INTENTS = [
+    (
+        r"\bexperiment(?:s|al|ation)?\b|\bevaluat(?:e|ed|ion)\b|\bbenchmark",
+        r"experiment|evaluat|result|benchmark|setup",
+    ),
+    (
+        r"\bresults?\b|\bfindings?\b|\bperform(?:ance|ed)\b|\baccuracy\b",
+        r"result|experiment|evaluat|finding|performance",
+    ),
+    (r"\bablations?\b", r"ablation|analysis"),
+    (r"\bdatasets?\b|\bcorpus\b|\bcorpora\b", r"data|experiment|setup"),
+    (
+        r"\bmethod(?:s|ology)?\b|\bapproach\b|\barchitecture\b|\bproposed\b|\bframework\b|\balgorithm\b",
+        r"method|approach|architecture|model|framework|proposed|algorithm",
+    ),
+    (r"\bconclu(?:sion|sions|de)\b", r"conclu|summary|discussion"),
+    (r"\blimitations?\b|\bweakness|\bfuture work\b", r"limitation|discussion|future|conclu"),
+    (r"\brelated work\b|\bprior work\b|\bliterature\b|\bbackground\b", r"related|background|prior|literature"),
+    (r"\bintroduction\b|\bmotivation\b", r"introduction|motivation"),
+    (r"\btraining\b|\bimplementation details\b|\bhyper-?parameters?\b", r"training|implementation|setup|experiment"),
+]
+
+
+def section_intent(query: str):
+    """The section headings a question asks about, as a regex, or None."""
+    q = (query or "").lower()
+    pats = [sec for ask, sec in _SECTION_INTENTS if re.search(ask, q)]
+    return re.compile("|".join(dict.fromkeys(pats)), re.I) if pats else None
 
 
 def make_lc_retriever(retriever: HybridQdrantRetriever):
@@ -419,6 +504,32 @@ class PgVectorStore:
             )
             out.append(d)
         return out
+
+    def section_passages(self, collection: str, pattern: re.Pattern, documents=None, cap: int = 24) -> list[dict]:
+        where, args = "collection = %s AND section IS NOT NULL", [collection]
+        if documents:
+            where += " AND source_document = ANY(%s)"
+            args.append(list(documents))
+        with self._conn() as c:
+            rows = c.execute(
+                f"SELECT passage_id, title, text, source_document, page, section, seq FROM {self.table} WHERE {where}",
+                args,
+            ).fetchall()
+        out = [
+            {
+                "document_id": r[0],
+                "passage_id": r[0],
+                "title": r[1] or "",
+                "text": r[2],
+                "source_document": r[3],
+                "page": r[4],
+                "section": r[5],
+                "seq": r[6],
+            }
+            for r in rows
+            if pattern.search(r[5] or "")
+        ]
+        return sorted(out, key=_reading_order)[:cap]
 
     def document_passages(self, document_id: str) -> list[dict]:
         with self._conn() as c:
