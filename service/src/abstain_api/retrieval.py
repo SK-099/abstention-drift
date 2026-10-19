@@ -328,6 +328,15 @@ class HybridQdrantRetriever:
                 if h["document_id"] not in have
             ]
             in_section = {h["document_id"] for h in hits}
+        # reference lists match every topic of a paper by title, but say nothing about it: leave them out
+        # unless the question is about the references themselves
+        if not _ABOUT_REFS.search(query or ""):
+            from .parsing import is_back_matter
+
+            # (only uploaded sources: the research corpora have no reference lists, and a history passage full of
+            # years in brackets must not be mistaken for one)
+            body = [c for c in cands if not (c.get("source_document") and is_back_matter(c))]
+            cands = body or cands
         scores = self.reranker.scores(query, [c["text"] for c in cands])
         ranked = sorted((dict(c, score=float(sc)) for c, sc in zip(cands, scores)), key=lambda p: -p["score"])
         if in_section:
@@ -358,6 +367,11 @@ _SECTION_INTENTS = [
     (r"\bintroduction\b|\bmotivation\b", r"introduction|motivation"),
     (r"\btraining\b|\bimplementation details\b|\bhyper-?parameters?\b", r"training|implementation|setup|experiment"),
 ]
+
+
+_ABOUT_REFS = re.compile(
+    r"\b(?:references?|cit(?:e|es|ed|ation|ations)|bibliograph|related work|prior work|acknowledg)", re.I
+)
 
 
 def section_intent(query: str):

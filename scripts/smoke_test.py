@@ -296,7 +296,8 @@ def setup_tests(api: Api, run: Run, args, pdfs: list[Path], first_model: str | N
                 secs = [p.get("section") or "" for p in ps]
                 distinct = sorted({s.split(" › ")[0] for s in secs if s})
                 abstract = sum(1 for s in secs if s.lower().startswith("abstract")) / max(1, len(secs))
-                status = "PASS" if len(distinct) >= 3 and abstract < 0.5 else "WARN"
+                # a short paper (an extended abstract) can have a single heading
+                status = "PASS" if (len(distinct) >= 3 or len(secs) < 20) and abstract < 0.5 else "WARN"
                 return status, f"{len(distinct)} top sections, {abstract:.0%} labelled Abstract: " + "; ".join(distinct[:8]), {}
             run.check(f"sections:{name}", "-", f"section headings {name[:8]}", sections)
 

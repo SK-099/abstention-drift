@@ -285,3 +285,38 @@ def test_off_topic_studio_output_is_caught():
         "about screen time, smartphones and online bullying.",
         material,
     )
+
+
+def test_reference_lists_are_not_retrieved_unless_asked_for():
+    from abstain_api.retrieval import HybridQdrantRetriever
+
+    refs = {
+        "document_id": "r",
+        "title": "T",
+        "source_document": "d",
+        "section": "Bibliography",
+        "text": "[3] Wang, X. et al. Improving medical image classification with label noise. IEEE TMI (2022).",
+    }
+    body = {
+        "document_id": "b",
+        "title": "T",
+        "source_document": "d",
+        "section": "1. Introduction",
+        "text": "Noisy labels make medical image classification hard; we propose NQNN.",
+    }
+
+    class Store:
+        def hybrid_search(self, *a, **k):
+            return [dict(refs), dict(body)]
+
+    class Emb:
+        def embed_query(self, q):
+            return [0.0]
+
+    class Rer:
+        def scores(self, q, texts):
+            return [0.9 if "Wang" in t else 0.5 for t in texts]
+
+    r = HybridQdrantRetriever(get_settings(), Store(), Emb(), Rer())
+    assert [p["document_id"] for p in r.search("What problem does the paper address?", "c", documents=["d"])] == ["b"]
+    assert r.search("Which references does it cite?", "c", documents=["d"])[0]["document_id"] == "r"

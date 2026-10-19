@@ -178,3 +178,20 @@ def test_podcast_scripts_are_tidied_and_skip_reference_lists():
     assert not is_back_matter({"section": "2. Method", "text": "We use ResNet-50 (He et al. 2016)."})
     body = {"section": "2. Method", "text": "The encoder is ResNet-50."}
     assert "Smith" not in sample_passages([body, refs], 2000)
+
+
+def test_flashcards_in_the_shapes_small_models_write():
+    from abstain_api.generation import parse_flashcards
+
+    assert len(parse_flashcards("Q: What is X? | A: A model [1]\nQ: Dice? | A: 0.94 [1]")) == 2
+    split = parse_flashcards(
+        "Q: What is QPolypNet?\nA: A quantum-inspired model [1]\n\nQuestion 2: Dataset?\nAnswer: Kvasir"
+    )
+    assert [c["front"] for c in split] == ["What is QPolypNet?", "Dataset?"] and split[0]["sources"] == [1]
+    bullets = parse_flashcards(
+        "1. **QPolypNet**: segmentation model\n2. **Dice score**: 0.942 [1]\nPlain prose: not a card."
+    )
+    assert [c["front"] for c in bullets] == ["QPolypNet", "Dice score"]
+    table = parse_flashcards("| Front | Back |\n|---|---|\n| QPolypNet | a model |\n| Dice | 0.94 [2] |")
+    assert [(c["front"], c["sources"]) for c in table] == [("QPolypNet", []), ("Dice", [2])]
+    assert parse_flashcards("Just a paragraph about the paper.") == []

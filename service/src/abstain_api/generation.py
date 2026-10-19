@@ -11,6 +11,7 @@ import logging
 import re
 from collections import Counter
 
+from .parsing import is_back_matter
 from .settings import Settings
 
 log = logging.getLogger(__name__)
@@ -72,17 +73,6 @@ def clip_passages(passages: list[dict], max_chars: int) -> str:
         if n >= max_chars:
             break
     return "\n".join(out)
-
-
-_BACKMATTER = re.compile(r"reference|bibliograph|acknowledg|funding|author contributions|conflicts? of interest", re.I)
-_CITATION = re.compile(r"\bet al\.|\bIn Proceedings\b|\barXiv\b|\bdoi\b|\bpp\. \d|\(\d{4}\)|\b(?:19|20)\d{2}\.\s", re.I)
-
-
-def is_back_matter(p: dict) -> bool:
-    """Reference lists and acknowledgements: small models read them out as if they were content."""
-    if _BACKMATTER.search(p.get("section") or ""):
-        return True
-    return len(_CITATION.findall(p.get("text") or "")) >= 4
 
 
 def sample_passages(passages: list[dict], max_chars: int) -> str:
@@ -344,15 +334,51 @@ def parse_timeline(text: str) -> list[dict]:
     return out
 
 
+_FRONT = r"(?:Q(?:uestion)?|Front|Term|Concept)\s*\d*\s*[:.]"
+_BACK = r"(?:A(?:nswer)?|Back|Definition|Meaning)\s*[:.]"
+
+
 def parse_flashcards(text: str) -> list[dict]:
-    out = []
+    """Flashcards in the asked format "Q: front | A: back", or in the shapes small models drift into:
+    Q and A on separate lines, "Front: ... Back: ...", "front | back", or a bulleted "**Term**: definition"."""
+    strict, loose, pending = [], [], None
+
+    def card(front: str, back: str) -> dict:
+        back, nums = _strip_cites(back.strip(" *"))
+        return {"front": front.strip(" *"), "back": back, "sources": nums}
+
     for line in text.splitlines():
-        m = re.match(
-            r"^\s*(?:[-*\d.)]+\s*)?(?:\*\*)?Q\s*[:.]\**\s*(.+?)\s*\|\s*(?:\*\*)?A\s*[:.]\**\s*(.+)$", line, re.I
-        )
-        if m:
-            back, nums = _strip_cites(m.group(2))
-            out.append({"front": m.group(1).strip(), "back": back, "sources": nums})
+        raw = line.strip()
+        if not raw:
+            continue
+        s = re.sub(r"^(?:[-*\u2022]|\d+[.)])\s+", "", raw).replace("**", "").replace("__", "").strip()
+        bullet = s != raw.replace("**", "").replace("__", "").strip()
+        if m := re.match(rf"^{_FRONT}\s*(.+?)\s*(?:\||\s[-\u2013]\s|\t)\s*{_BACK}\s*(.+)$", s, re.I):
+            strict.append(card(m.group(1), m.group(2)))
+            pending = None
+        elif m := re.match(rf"^{_FRONT}\s*(.+)$", s, re.I):
+            pending = m.group(1)
+        elif (m := re.match(rf"^{_BACK}\s*(.+)$", s, re.I)) and pending:
+            strict.append(card(pending, m.group(1)))
+            pending = None
+        elif s.startswith("|"):  # a Markdown table: | front | back |
+            cells = [c.strip() for c in s.strip("|").split("|")]
+            header = cells[0].lower() in ("front", "question", "term", "q", "concept", "#")
+            if len(cells) >= 2 and cells[0] and cells[1] and not header and not set("".join(cells)) <= set("-: "):
+                loose.append(card(cells[0], cells[1]))
+        elif "|" in s:
+            a, b = (x.strip() for x in s.split("|", 1))
+            if 2 <= len(a) <= 200 and len(b) >= 2 and not set(b) <= set("-: |"):
+                loose.append(card(a, b))
+        elif bullet and (m := re.match(r"^([^:]{2,120}?)\s*:\s+(.{2,})$", s)):
+            loose.append(card(m.group(1), m.group(2)))
+    cards = strict if len(strict) >= 3 or len(strict) >= len(loose) else strict + loose
+    seen, out = set(), []
+    for c in cards:
+        key = c["front"].lower()
+        if c["front"] and c["back"] and key not in seen:
+            seen.add(key)
+            out.append(c)
     return out
 
 

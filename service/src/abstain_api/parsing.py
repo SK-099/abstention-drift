@@ -259,3 +259,14 @@ def chunk_text(text: str, words: int = 220, overlap: int = 40) -> list[str]:
     if cur:
         chunks.append(" ".join(cur))
     return [c for c in chunks if len(c.split()) >= 5]
+
+
+_BACKMATTER = re.compile(r"reference|bibliograph|acknowledg|funding|author contributions|conflicts? of interest", re.I)
+_CITATION = re.compile(r"\bet al\.|\bIn Proceedings\b|\barXiv\b|\bdoi\b|\bpp\. \d|\(\d{4}\)|\b(?:19|20)\d{2}\.\s", re.I)
+
+
+def is_back_matter(p: dict) -> bool:
+    """Reference lists and acknowledgements: small models read them out as if they were content."""
+    if _BACKMATTER.search(p.get("section") or ""):
+        return True
+    return len(_CITATION.findall(p.get("text") or "")) >= 4
