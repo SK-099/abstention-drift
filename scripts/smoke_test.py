@@ -24,11 +24,15 @@ which is what the project measures, not a bug.
 from __future__ import annotations
 
 import argparse
+import base64
+import hashlib
+import hmac
 import csv
 import http.client
 import json
 import mimetypes
 import os
+import re
 import sys
 import time
 import urllib.error
@@ -344,6 +348,12 @@ def finish_setup(api: Api, run: Run, args, cid: str):
         def youtube():
             _, d = api.call("POST", f"/collections/{cid}/sources", {"type": "youtube", "url": args.youtube}, timeout=180)
             got = wait_docs(api, cid, [d["id"]], 600, want_guides=False).get(d["id"], {})
+            if got.get("status") == "indexed":
+                st["yt_doc"] = d["id"]
+                run.save_state()
+                _, ps = api.call("GET", f"/collections/{cid}/documents/{d['id']}/passages")
+                stamps = [p.get("section") for p in ps if re.search(r"\d:\d{2}", p.get("section") or "")]
+                got["error"] = f"{len(stamps)} timestamped sections (e.g. {', '.join(stamps[:3])})"
             return ("PASS" if got.get("status") == "indexed" else "FAIL"), \
                 f"{got.get('filename')}: {got.get('status')}, {got.get('n_passages')} passages {got.get('error') or ''}", {}
         run.check("source:youtube", "-", "YouTube source", youtube)
@@ -436,6 +446,12 @@ def model_tests(api: Api, run: Run, args, cid: str, mid: str, audio: bool):
         run.check(f"{m}|feedback", m, "feedback (thumbs up)", lambda: (
             "PASS", f"saved {api.call('POST', '/feedback', {'message_id': msg, 'rating': 1})[1].get('id', '')}", {}))
 
+    # YouTube source: a question about the video, cited with timestamps
+    if st.get("yt_doc"):
+        body = {"message": YT_QUESTION, "collection": cid, "model": mid, "document_ids": [st["yt_doc"]]}
+        run.check(f"{m}|youtube", m, "YouTube: question on video", lambda: chat_check(
+            api, body, args.chat_timeout, want_timestamps=True))
+
     # Studio
     kinds = [k for k in args.studio if k != "none"]
     if audio:
@@ -479,6 +495,165 @@ def model_tests(api: Api, run: Run, args, cid: str, mid: str, audio: bool):
                 f"{d.get('guide_status')}: {(g.get('summary') or '')[:150]}", {}
         run.check(f"{m}|guide", m, "source guide (this model)", guide)
 
+
+
+# ------------------------------------------------------------------------------------------------ YouTube + sharing
+YT_QUESTION = "What does the speaker explain in this video, and what example do they use?"
+SHARE_QUESTION = "What problem does this paper address?"
+
+
+def mint_token(secret: str, sub: str, email: str | None = None, hours: int = 12) -> str:
+    """An HS256 JWT like the one Auth.js signs (only for the sharing test API, AUTH_MODE=hs256)."""
+
+    def b64(d: bytes) -> str:
+        return base64.urlsafe_b64encode(d).rstrip(b"=").decode()
+
+    now = int(time.time())
+    claims = {"sub": sub, "iat": now, "exp": now + hours * 3600}
+    if email:
+        claims["email"] = email
+    head = b64(json.dumps({"alg": "HS256", "typ": "JWT"}).encode()) + "." + b64(json.dumps(claims).encode())
+    sig = hmac.new(secret.encode(), head.encode(), hashlib.sha256).digest()
+    return head + "." + b64(sig)
+
+
+def chat_check(api: Api, body: dict, timeout: int, want_timestamps: bool = False):
+    """(status, detail, extra) for one chat question that should be answered with citations."""
+    final, error, steps, secs = api.chat(body, timeout)
+    if error and not final and not error.startswith("HTTP") and "timed out" not in error.lower():
+        time.sleep(10)
+        final, error, steps, secs = api.chat(body, timeout)
+    if error or not final:
+        return "FAIL", error or "no final answer", {}
+    cites = final.get("citations") or []
+    sections = [c.get("section") or "" for c in cites]
+    got = final["decision"]
+    status = "PASS" if got == "answer" and cites else "WARN"
+    if want_timestamps and got == "answer" and not any(re.search(r"\b\d{1,2}:\d{2}\b", s) for s in sections):
+        status = "WARN"
+    detail = (f"{got}" + (f" by {final.get('abstained_by')}" if got == "abstain" else "")
+              + f", p={final.get('p_unanswerable')}, {len(cites)} cites [{'; '.join(s[:24] for s in sections[:3])}] - "
+              + (final.get("answer") or "").replace("\n", " ")[:140])
+    return status, detail, {"decision": got, "p": final.get("p_unanswerable"), "citations": len(cites)}
+
+
+def expect_status(api: Api, method: str, path: str, body, codes: tuple[int, ...]) -> tuple[bool, str]:
+    try:
+        code, _ = api.call(method, path, body)
+    except ApiError as e:
+        code = e.code
+    return code in codes, f"{method} {path.split('/')[-1] or path} -> {code}"
+
+
+def share_setup(run: Run, args, pdf: Path, first_model: str | None):
+    """A notebook owned by one signed-in user, shared with a viewer (by e-mail) and an editor (by user id),
+    on the sharing test API (docker compose --profile sharetest up -d api-share). Returns the users' Apis."""
+    print("\n== Sharing with other users (second API in sign-in mode)")
+    st, sec = run.state, args.share_secret
+    users = {
+        "owner": Api(args.share_api, mint_token(sec, "smoke-owner", "owner@smoke.test")),
+        "viewer": Api(args.share_api, mint_token(sec, "smoke-viewer", "viewer@smoke.test")),
+        "editor": Api(args.share_api, mint_token(sec, "smoke-editor", "editor@smoke.test")),
+        "stranger": Api(args.share_api, mint_token(sec, "smoke-stranger", "stranger@smoke.test")),
+    }
+    o = users["owner"]
+
+    def signin():
+        _, r = o.call("GET", "/collections")
+        anon = Api(args.share_api, None)
+        ok, msg = expect_status(anon, "GET", "/collections", None, (401,))
+        return ("PASS" if ok else "FAIL"), f"signed-in user sees {len(r)} notebooks; without a token: {msg}", {}
+    run.check("share:signin", "-", "sign-in mode (tokens)", signin)
+
+    if not st.get("share_cid"):
+        cid = "share-" + datetime.now().strftime("%m%d-%H%M")
+        o.call("POST", "/collections", {"id": cid, "name": "Shared smoke test"})
+        _, d = o.upload(cid, pdf, first_model)
+        st["share_cid"], st["share_doc"] = cid, d["id"]
+        run.save_state()
+    cid, did = st["share_cid"], st["share_doc"]
+
+    def indexed():
+        d = wait_docs(o, cid, [did], args.index_timeout, want_guides=False).get(did, {})
+        return ("PASS" if d.get("status") == "indexed" else "FAIL"), f"{d.get('status')}, {d.get('n_passages')} passages", {}
+    run.check("share:index", "-", "owner uploads a PDF", indexed)
+
+    def before():
+        ok, msg = expect_status(users["viewer"], "GET", f"/collections/{cid}", None, (403, 404))
+        return ("PASS" if ok else "FAIL"), f"not shared yet: {msg}", {}
+    run.check("share:private", "-", "private before sharing", before)
+
+    def share():
+        o.call("PUT", f"/collections/{cid}/sharing/members", {"principal": "viewer@smoke.test", "role": "viewer"})
+        _, sh = o.call("PUT", f"/collections/{cid}/sharing/members", {"principal": "smoke-editor", "role": "editor"})
+        return "PASS", "; ".join(f"{m['principal']}={m['role']}" for m in sh["members"]), {}
+    run.check("share:members", "-", "owner shares (viewer, editor)", share)
+
+    def viewer_rights():
+        v = users["viewer"]
+        _, c = v.call("GET", f"/collections/{cid}")
+        listed = cid in {x["id"] for x in v.call("GET", "/collections")[1]}
+        _, docs = v.call("GET", f"/collections/{cid}/documents")
+        checks = [
+            expect_status(v, "POST", f"/collections/{cid}/sources", {"type": "text", "text": "x" * 40}, (403,)),
+            expect_status(v, "POST", f"/collections/{cid}/studio", {"kind": "faq"}, (403,)),
+            expect_status(v, "PUT", f"/collections/{cid}/sharing/members", {"principal": "z@smoke.test"}, (403,)),
+            expect_status(v, "DELETE", f"/collections/{cid}", None, (403,)),
+        ]
+        ok = c.get("role") == "viewer" and listed and len(docs) >= 1 and all(x[0] for x in checks)
+        return ("PASS" if ok else "FAIL"), f"role {c.get('role')}, listed {listed}, {len(docs)} sources; blocked: " + \
+            ", ".join(m for _, m in checks), {}
+    run.check("share:viewer", "-", "viewer: read yes, change no", viewer_rights)
+
+    def editor_rights():
+        e = users["editor"]
+        _, c = e.call("GET", f"/collections/{cid}")
+        code_src, _ = e.call("POST", f"/collections/{cid}/sources",
+                             {"type": "text", "title": "Editor note", "text": "The editor added this note to test sharing. " * 2})
+        checks = [
+            expect_status(e, "PATCH", f"/collections/{cid}/sharing", {"link_access": "viewer"}, (403,)),
+            expect_status(e, "DELETE", f"/collections/{cid}", None, (403,)),
+        ]
+        ok = c.get("role") == "editor" and code_src == 202 and all(x[0] for x in checks)
+        return ("PASS" if ok else "FAIL"), f"role {c.get('role')}, added a source ({code_src}); blocked: " + \
+            ", ".join(m for _, m in checks), {}
+    run.check("share:editor", "-", "editor: add sources, not share", editor_rights)
+
+    def private_notes():
+        o.call("POST", f"/collections/{cid}/notes", {"title": "Owner's private note"})
+        _, n = users["viewer"].call("GET", f"/collections/{cid}/notes")
+        return ("PASS" if n == [] else "FAIL"), f"viewer sees {len(n)} of the owner's notes", {}
+    run.check("share:notes", "-", "notes stay private", private_notes)
+
+    def link_access():
+        s = users["stranger"]
+        ok1, m1 = expect_status(s, "GET", f"/collections/{cid}", None, (403, 404))
+        o.call("PATCH", f"/collections/{cid}/sharing", {"link_access": "viewer"})
+        code, c = s.call("GET", f"/collections/{cid}")
+        listed = cid in {x["id"] for x in s.call("GET", "/collections")[1]}
+        o.call("PATCH", f"/collections/{cid}/sharing", {"link_access": "none"})
+        ok3, m3 = expect_status(s, "GET", f"/collections/{cid}", None, (403, 404))
+        ok = ok1 and code == 200 and c.get("role") == "viewer" and not listed and ok3
+        return ("PASS" if ok else "FAIL"), f"before: {m1}; with link: {c.get('role')} (not listed: {not listed}); revoked: {m3}", {}
+    run.check("share:link", "-", "anyone with the link", link_access)
+    return users, cid, did
+
+
+def share_model_tests(run: Run, args, users: dict, cid: str, did: str, mid: str):
+    m = short(mid)
+    for who in ("viewer", "editor"):
+        body = {"message": SHARE_QUESTION, "collection": cid, "model": mid, "document_ids": [did]}
+        run.check(f"{m}|share:{who}-chat", m, f"shared: {who} asks", lambda who=who, body=body: chat_check(
+            users[who], body, args.chat_timeout))
+
+
+def revoke_check(run: Run, users: dict, cid: str):
+    def revoke():
+        o, v = users["owner"], users["viewer"]
+        o.call("DELETE", f"/collections/{cid}/sharing/members/viewer@smoke.test")
+        ok, msg = expect_status(v, "GET", f"/collections/{cid}", None, (403, 404))
+        return ("PASS" if ok else "FAIL"), f"viewer removed: {msg}", {}
+    run.check("share:revoke", "-", "owner removes the viewer", revoke)
 
 # ------------------------------------------------------------------------------------------------ report
 def cell(text: str, n: int) -> str:
@@ -553,7 +728,11 @@ def main():
     ap.add_argument("--no-web", action="store_true", help="skip the web-page source and Discover (no internet)")
     ap.add_argument("--web-url", default="https://en.wikipedia.org/wiki/Retrieval-augmented_generation")
     ap.add_argument("--discover-query", default="retrieval augmented generation hallucination")
-    ap.add_argument("--youtube", help="a YouTube link with captions to test the YouTube source")
+    ap.add_argument("--youtube", nargs="?", const="https://www.youtube.com/watch?v=aircAruvnKk",
+                    help="test a YouTube video as a source (a link with captions; default: 3Blue1Brown, neural networks)")
+    ap.add_argument("--share-api", help="URL of the sharing test API in sign-in mode, e.g. http://127.0.0.1:8001 "
+                    "(docker compose --profile sharetest up -d api-share): tests sharing with other users")
+    ap.add_argument("--share-secret", default=os.environ.get("SHARE_TEST_SECRET", "smoke-share-secret"))
     ap.add_argument("--chat-timeout", type=int, default=900)
     ap.add_argument("--studio-timeout", type=int, default=1800)
     ap.add_argument("--index-timeout", type=int, default=1800)
@@ -597,9 +776,20 @@ def main():
         if not any(r["status"] == "PASS" for k, r in run.done.items() if k.startswith("index:")):
             print("\nNo PDF was indexed: stopping before the model tests.")
         else:
+            share = None
+            if args.share_api:
+                try:
+                    share = share_setup(run, args, pdfs[0] if pdfs else None, models[0] if models else None)
+                except Exception as e:
+                    print(f"  ! sharing test API not usable ({type(e).__name__}: {e}); start it with "
+                          "docker compose --profile sharetest up -d api-share")
             for i, mid in enumerate(models):
                 model_tests(api, run, args, cid, mid, audio=i < args.audio_models)
+                if share:
+                    share_model_tests(run, args, *share, mid)
                 write_report(run, models)
+            if share:
+                revoke_check(run, share[0], share[1])
     except KeyboardInterrupt:
         print("\nStopped. Continue later with:  python scripts/smoke_test.py --resume", run.out)
     except Exception as e:  # the API went away for good: keep what was done, say how to continue

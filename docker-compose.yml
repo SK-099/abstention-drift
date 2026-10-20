@@ -20,7 +20,7 @@
 x-app: &app
   image: ${IMAGE_API:-abstain-api:local}
   env_file: [{ path: .env, required: false }]
-  environment:
+  environment: &app-env
     DATABASE_URL: postgresql+asyncpg://app:${POSTGRES_PASSWORD:-app}@postgres:5432/app
     REDIS_URL: redis://redis:6379/0
     QDRANT_URL: http://qdrant:6333
@@ -57,6 +57,20 @@ services:
     depends_on:
       migrate: { condition: service_completed_successfully }
       qdrant: { condition: service_started }
+      redis: { condition: service_healthy }
+
+  api-share:                                       # sharing test only (scripts/smoke_test.py --share-api):
+    <<: *app                                       # the same data, but users sign in with tokens, so several
+    profiles: [sharetest]                          # people can be simulated. docker compose --profile sharetest
+    pull_policy: never                             # up -d api-share ... docker compose stop api-share
+    ports: ["8001:8000"]
+    environment:
+      <<: *app-env
+      AUTH_MODE: hs256
+      AUTH_SECRET: ${SHARE_TEST_SECRET:-smoke-share-secret}
+      WARMUP: "false"
+    depends_on:
+      migrate: { condition: service_completed_successfully }
       redis: { condition: service_healthy }
 
   worker:

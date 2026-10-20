@@ -180,3 +180,12 @@ summary and comparison; feedback; Studio (`--studio faq flashcards` by default, 
 overview for the first model (`--audio-models N`). Results: `smoke_results/<time>/report.md` and `report.csv`.
 FAIL = something broke; WARN = it ran, but the model answered a question it should have refused (or the
 reverse), which is model quality rather than a bug.
+
+YouTube and sharing with other users are tested with two more options. Sharing needs a second API that signs
+users in with tokens (the normal one runs in dev mode, where everyone is the same user); it uses the same data:
+
+```powershell
+docker compose --profile sharetest up -d api-share             # port 8001, AUTH_MODE=hs256
+python scripts\smoke_test.py --pdfs paper.pdf --no-chat --studio none --audio-models 0 --youtube --share-api http://127.0.0.1:8001
+docker compose stop api-share
+```
