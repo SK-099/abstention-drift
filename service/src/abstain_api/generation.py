@@ -344,8 +344,13 @@ def parse_flashcards(text: str) -> list[dict]:
     strict, loose, pending = [], [], None
 
     def card(front: str, back: str) -> dict:
-        back, nums = _strip_cites(back.strip(" *"))
+        front = re.sub(r"^(?:\d+\s*[:.)]\s*|Q\s*[:.]\s*)", "", front.strip(" *"), flags=re.I)
+        back = re.sub(r"^(?:A(?:nswer)?\s*[:.]\s*)", "", back.strip(" *"), flags=re.I)
+        back, nums = _strip_cites(back)
         return {"front": front.strip(" *"), "back": back, "sources": nums}
+
+    def placeholder(c: dict) -> bool:  # the format template copied back: "[Term or question]: [Answer ...]"
+        return any(re.fullmatch(r"[\[<].*[\]>]", c[k].strip()) for k in ("front", "back")) or not c["back"]
 
     for line in text.splitlines():
         raw = line.strip()
@@ -353,6 +358,7 @@ def parse_flashcards(text: str) -> list[dict]:
             continue
         s = re.sub(r"^(?:[-*\u2022]|\d+[.)])\s+", "", raw).replace("**", "").replace("__", "").strip()
         bullet = s != raw.replace("**", "").replace("__", "").strip()
+        s = re.sub(r"^\d{1,2}\s*:\s*", "", s)  # "1: What is ...?"
         if m := re.match(rf"^{_FRONT}\s*(.+?)\s*(?:\||\s[-\u2013]\s|\t)\s*{_BACK}\s*(.+)$", s, re.I):
             strict.append(card(m.group(1), m.group(2)))
             pending = None
@@ -376,7 +382,7 @@ def parse_flashcards(text: str) -> list[dict]:
     seen, out = set(), []
     for c in cards:
         key = c["front"].lower()
-        if c["front"] and c["back"] and key not in seen:
+        if c["front"] and c["back"] and key not in seen and not placeholder(c):
             seen.add(key)
             out.append(c)
     return out

@@ -295,6 +295,9 @@ def setup_tests(api: Api, run: Run, args, pdfs: list[Path], first_model: str | N
                 _, ps = api.call("GET", f"/collections/{cid}/documents/{did}/passages")
                 secs = [p.get("section") or "" for p in ps]
                 distinct = sorted({s.split(" › ")[0] for s in secs if s})
+                # the section question is only checked on papers that have an experiments / results section
+                st.setdefault("has_results", {})[name] = any(w in s.lower() for s in secs for w in SECTION_WORDS)
+                run.save_state()
                 abstract = sum(1 for s in secs if s.lower().startswith("abstract")) / max(1, len(secs))
                 # a short paper (an extended abstract) can have a single heading
                 status = "PASS" if (len(distinct) >= 3 or len(secs) < 20) and abstract < 0.5 else "WARN"
@@ -380,7 +383,7 @@ def model_tests(api: Api, run: Run, args, cid: str, mid: str, audio: bool):
         return ("PASS" if r.get("loaded") else "WARN"), f"loaded in {r.get('seconds')} s {r.get('detail') or ''}", {}
     run.check(f"{m}|warm", m, "warm-up (load model)", warm)
 
-    def ask(key, label, question, expect, doc_ids, conversation=None):
+    def ask(key, label, question, expect, doc_ids, conversation=None, doc_name=None):
         def fn():
             body = {"message": question, "collection": cid, "model": mid, "document_ids": doc_ids}
             if conversation:
@@ -404,7 +407,7 @@ def model_tests(api: Api, run: Run, args, cid: str, mid: str, audio: bool):
                 status = "PASS" if got == "abstain" else "WARN"
             else:
                 status = "PASS" if got == "answer" and (cites or label in ("overview", "compare")) else "WARN"
-            if label == "section" and got == "answer" and not any(w in s.lower() for s in secs_ for w in SECTION_WORDS):
+            if label.startswith("section") and st.get("has_results", {}).get(doc_name, True) and got == "answer" and not any(w in s.lower() for s in secs_ for w in SECTION_WORDS):
                 status = "WARN"
             p = final.get("p_unanswerable")
             detail = (f"{got}" + (f" by {final.get('abstained_by')}" if got == "abstain" else "")
@@ -416,7 +419,7 @@ def model_tests(api: Api, run: Run, args, cid: str, mid: str, audio: bool):
     for name, did in zip(names, pdf_ids if not args.quick else pdf_ids[:1]):
         tag = Path(name).stem[:10]
         for label, q, expect in PER_DOC:
-            r = ask(f"{m}|{name}|{label}", f"{label} [{tag}]", q, expect, [did])
+            r = ask(f"{m}|{name}|{label}", f"{label} [{tag}]", q, expect, [did], doc_name=name)
             if label == "general" and name == names[0] and r.get("conversation_id"):
                 st.setdefault("conv", {})[m] = r["conversation_id"]
                 run.save_state()

@@ -195,3 +195,14 @@ def test_flashcards_in_the_shapes_small_models_write():
     table = parse_flashcards("| Front | Back |\n|---|---|\n| QPolypNet | a model |\n| Dice | 0.94 [2] |")
     assert [(c["front"], c["sources"]) for c in table] == [("QPolypNet", []), ("Dice", [2])]
     assert parse_flashcards("Just a paragraph about the paper.") == []
+
+
+def test_flashcards_drop_copied_templates_and_numbering():
+    from abstain_api.generation import parse_flashcards
+
+    assert parse_flashcards("- **[Term or question]**: [Answer with source number]") == []
+    got = parse_flashcards("- **1: What is QPolypNet?**: A: A quantum-inspired model [1]\n- **2: Dice?**: A: 0.94")
+    assert [(c["front"], c["back"]) for c in got] == [
+        ("What is QPolypNet?", "A quantum-inspired model"),
+        ("Dice?", "0.94"),
+    ]
