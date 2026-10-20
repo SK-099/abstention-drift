@@ -347,7 +347,7 @@ def finish_setup(api: Api, run: Run, args, cid: str):
     if args.youtube:
         def youtube():
             _, d = api.call("POST", f"/collections/{cid}/sources", {"type": "youtube", "url": args.youtube}, timeout=180)
-            got = wait_docs(api, cid, [d["id"]], 600, want_guides=False).get(d["id"], {})
+            got = wait_docs(api, cid, [d["id"]], args.index_timeout).get(d["id"], {})  # with its guide
             if got.get("status") == "indexed":
                 st["yt_doc"] = d["id"]
                 run.save_state()
@@ -449,8 +449,11 @@ def model_tests(api: Api, run: Run, args, cid: str, mid: str, audio: bool):
     # YouTube source: a question about the video, cited with timestamps
     if st.get("yt_doc"):
         body = {"message": YT_QUESTION, "collection": cid, "model": mid, "document_ids": [st["yt_doc"]]}
-        run.check(f"{m}|youtube", m, "YouTube: question on video", lambda: chat_check(
-            api, body, args.chat_timeout, want_timestamps=True))
+        run.check(f"{m}|youtube", m, "YouTube: about the video", lambda: chat_check(api, body, args.chat_timeout))
+        if YT_DEFAULT in (args.youtube or ""):  # a detail question, answered from timestamped passages
+            body2 = dict(body, message=YT_SPECIFIC)
+            run.check(f"{m}|youtube-detail", m, "YouTube: detail (timestamps)", lambda: chat_check(
+                api, body2, args.chat_timeout, want_timestamps=True))
 
     # Studio
     kinds = [k for k in args.studio if k != "none"]
@@ -498,7 +501,9 @@ def model_tests(api: Api, run: Run, args, cid: str, mid: str, audio: bool):
 
 
 # ------------------------------------------------------------------------------------------------ YouTube + sharing
-YT_QUESTION = "What does the speaker explain in this video, and what example do they use?"
+YT_QUESTION = "What does the speaker explain in this video, and what example do they use?"  # whole video: guide
+YT_DEFAULT = "aircAruvnKk"  # 3Blue1Brown, "But what is a neural network?" (English captions)
+YT_SPECIFIC = "In the video, what does the activation of each neuron in the first layer of the network represent?"
 SHARE_QUESTION = "What problem does this paper address?"
 
 

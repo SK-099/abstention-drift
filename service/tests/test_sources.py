@@ -174,7 +174,17 @@ def test_overview_detection():
         "main themes please",
     ]:
         assert is_overview_question(q), q
-    for q in ["When does the ferry leave?", "How much is a tram ticket on Sundays?"]:
+    for q in [
+        "What is this video about?",
+        "What does the speaker explain in this video, and what example do they use?",
+    ]:
+        assert is_overview_question(q), q
+    for q in [
+        "When does the ferry leave?",
+        "How much is a tram ticket on Sundays?",
+        "What does the paper say about the Dice score on Kvasir?",
+        "Explain the experiments of this paper and their main results.",
+    ]:
         assert not is_overview_question(q), q
     g = parse_guide(
         "**SUMMARY:** A text.\nIt is short.\nTOPICS: one; two, Three\nQUESTIONS:\n1. Why is it short\n2) How long is it?"

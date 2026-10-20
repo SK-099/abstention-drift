@@ -147,7 +147,12 @@ OVERVIEW = re.compile(
     r"\b(summari[sz]e|summary|overview|outline|gist|main (?:points|ideas|topics|themes|findings|takeaways)|"
     r"key (?:points|ideas|topics|themes|findings|takeaways)|what (?:are|is) (?:these|my|the|this|all) "
     r"(?:sources?|documents?|files?|notebook|papers?|material)\b.*\babout|what do (?:my|the|these) "
-    r"(?:sources|documents) (?:say|cover)|compare (?:my|the|these|all) (?:sources|documents))",
+    r"(?:sources|documents) (?:say|cover)|compare (?:my|the|these|all) (?:sources|documents)|"
+    # the source as a whole: "what does this video explain?", "what is the paper about?"
+    r"what (?:is|does|do) (?:this|the|these) (?:video|videos|paper|papers|article|talk|lecture|document|book|"
+    r"chapter|podcast)(?: \w+ly)? (?:about|explain|cover|discuss|describe|teach|show|present)\s*(?:[?.!,]|$)|"
+    r"what (?:does|do) the (?:speaker|speakers|author|authors|presenter|lecturer) (?:explain|talk about|discuss|"
+    r"cover|describe) in (?:this|the) (?:video|talk|lecture|podcast|paper))",
     re.I,
 )
 
