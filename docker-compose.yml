@@ -26,6 +26,12 @@ x-app: &app
     QDRANT_URL: http://qdrant:6333
     LANGFUSE_HOST: http://langfuse-web:3000
     TTS_URL: ${TTS_URL:-http://kokoro:8880}       # audio overviews (docker compose --profile tts up -d kokoro)
+    # CPU threads for the search, re-ranker and evidence-check models (PyTorch). By default every process takes
+    # all cores; with the API, the worker and Ollama competing, that oversubscription slows each one down many
+    # times over on a laptop. 4 threads each is enough for these small models.
+    OMP_NUM_THREADS: ${TORCH_THREADS:-4}
+    MKL_NUM_THREADS: ${TORCH_THREADS:-4}
+    TOKENIZERS_PARALLELISM: "false"
   extra_hosts: ["host.docker.internal:host-gateway"]
   init: true                                     # tini as PID 1: reaps zombie processes, forwards stop signals
   volumes:

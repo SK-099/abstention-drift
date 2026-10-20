@@ -226,7 +226,7 @@ class QdrantStore:
             for p in res.points
         ]
 
-    def section_passages(self, collection: str, pattern: re.Pattern, documents=None, cap: int = 24) -> list[dict]:
+    def section_passages(self, collection: str, pattern: re.Pattern, documents=None, cap: int = 12) -> list[dict]:
         """Passages whose section heading matches `pattern` ("4. Experiments › 4.2 Results"), reading order."""
         from qdrant_client import models as m
 
@@ -519,7 +519,7 @@ class PgVectorStore:
             out.append(d)
         return out
 
-    def section_passages(self, collection: str, pattern: re.Pattern, documents=None, cap: int = 24) -> list[dict]:
+    def section_passages(self, collection: str, pattern: re.Pattern, documents=None, cap: int = 12) -> list[dict]:
         where, args = "collection = %s AND section IS NOT NULL", [collection]
         if documents:
             where += " AND source_document = ANY(%s)"
