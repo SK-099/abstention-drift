@@ -416,7 +416,7 @@ def model_tests(api: Api, run: Run, args, cid: str, mid: str, audio: bool):
             return status, detail, extra
         return run.check(key, m, label, fn)
 
-    for name, did in zip(names, pdf_ids if not args.quick else pdf_ids[:1]):
+    for name, did in zip(names, [] if args.no_chat else (pdf_ids if not args.quick else pdf_ids[:1])):
         tag = Path(name).stem[:10]
         for label, q, expect in PER_DOC:
             r = ask(f"{m}|{name}|{label}", f"{label} [{tag}]", q, expect, [did], doc_name=name)
@@ -426,7 +426,7 @@ def model_tests(api: Api, run: Run, args, cid: str, mid: str, audio: bool):
         if name == names[0] and st.get("conv", {}).get(m):
             fl, q, expect = FOLLOW_UP
             ask(f"{m}|{name}|{fl}", f"{fl} [{tag}]", q, expect, [did], conversation=st["conv"][m])
-    if len(pdf_ids) > 1:
+    if len(pdf_ids) > 1 and not args.no_chat:
         for label, q, expect in NOTEBOOK:
             ask(f"{m}|nb|{label}", label, q, expect, pdf_ids)
 
@@ -545,6 +545,8 @@ def main():
     ap.add_argument("--studio", nargs="*", default=["faq", "flashcards"],
                     help=f"Studio kinds per model ({' '.join(STUDIO_ALL)}), 'all' or 'none'")
     ap.add_argument("--audio-models", type=int, default=1, help="how many models also make an audio overview (0 = none)")
+    ap.add_argument("--no-chat", action="store_true",
+                    help="skip the chat questions (test only Studio, audio and the other features)")
     ap.add_argument("--guides", action="store_true", help="also rewrite the first PDF's source guide with each model")
     ap.add_argument("--no-web", action="store_true", help="skip the web-page source and Discover (no internet)")
     ap.add_argument("--web-url", default="https://en.wikipedia.org/wiki/Retrieval-augmented_generation")
