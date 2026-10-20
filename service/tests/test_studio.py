@@ -206,3 +206,16 @@ def test_flashcards_drop_copied_templates_and_numbering():
         ("What is QPolypNet?", "A quantum-inspired model"),
         ("Dice?", "0.94"),
     ]
+
+
+def test_timeline_without_dates_gives_no_fake_events():
+    from abstain_api.generation import parse_timeline
+
+    for text in (
+        "NO DATES | No dates found in the provided text",
+        "- **NO DATES**: x\n- NO DATES | 1 | QPolypNet: A model\n- 2 | NQNN: a framework",
+        "<date or period> | <what happened> [source number]",
+    ):
+        assert parse_timeline(text) == [], text
+    got = parse_timeline("- **<7 July 2023>** | Paper submitted [1]\n- Summer 2024 | Workshop [2]")
+    assert [(e["date"], e["sources"]) for e in got] == [("7 July 2023", [1]), ("Summer 2024", [2])]

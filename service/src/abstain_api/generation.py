@@ -321,15 +321,39 @@ def parse_faq(text: str) -> list[dict]:
     return [x for x in out if x["q"] and x["a"]]
 
 
+_MONTHS = (
+    r"jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?"
+    r"|nov(?:ember)?|dec(?:ember)?"
+)
+_DATE_WORD = re.compile(
+    rf"\d|\b(?:{_MONTHS}|spring|summer|autumn|fall|winter|century|decade|era|age|period|bc|ad|today|now)\b", re.I
+)
+
+
 def parse_timeline(text: str) -> list[dict]:
-    out = []
+    """ "date | event [n]" lines. A row only counts when its date looks like one (a number, a month, a season,
+    a century...): small models answer papers without dates with "NO DATES | ..." rows, numbered lists or a
+    copied "<date or period>" template, which must give "no dated events" rather than fake events."""
+    out, seen = [], set()
     for line in text.splitlines():
         line = re.sub(r"^\s*(?:[-*\u2022]|\d+[.)])\s+", "", line.strip())
         if "|" not in line:
             continue
-        date, event = (x.strip(" *") for x in line.split("|", 1))
-        event, nums = _strip_cites(event)
-        if date and event and len(date) <= 40:
+        date, event = line.split("|", 1)
+        date = date.strip(" *<>[]")
+        event, nums = _strip_cites(event.strip(" *<>"))
+        bad = re.search(r"no dates?|n/?a\b|unknown|not (?:given|stated|specified)|date or period", date, re.I)
+        if (
+            date
+            and event
+            and len(date) <= 40
+            and not bad
+            and _DATE_WORD.search(date)
+            and not re.fullmatch(r"\d{1,2}", date)  # a row number, not a date
+            and not re.search(r"what happened|no dates?", event, re.I)
+            and (date.lower(), event.lower()) not in seen
+        ):
+            seen.add((date.lower(), event.lower()))
             out.append({"date": date, "event": event, "sources": nums})
     return out
 

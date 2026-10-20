@@ -458,6 +458,8 @@ def model_tests(api: Api, run: Run, args, cid: str, mid: str, audio: bool):
                     "mindmap": "branches", "audio": "turns"}.get(kind, "chars")
             detail = f"{n} {unit}"
             status = "PASS" if n else "WARN"
+            if kind == "timeline" and not n and "no dated events" in (a.get("content") or "").lower():
+                status = "PASS"  # research papers usually have no dated events: saying so is right
             if kind == "audio":
                 if d.get("audio"):
                     detail += f", audio {d.get('duration_s')} s"
