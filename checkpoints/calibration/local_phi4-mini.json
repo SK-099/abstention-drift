@@ -1,0 +1,37 @@
+{
+  "model_id": "local:phi4-mini",
+  "tau": 0.52,
+  "min_p": 1.01,
+  "f1": 0.5991189427312775,
+  "recall": 0.918918918918919,
+  "fa": 0.5666666666666667,
+  "precision": 0.4444444444444444,
+  "source": "calibrated",
+  "complete": true,
+  "n_dev": 224,
+  "n_unanswerable": 74,
+  "refusal_rate_answerable": 0.54,
+  "refusal_rate_unanswerable": 0.8378378378378378,
+  "unsupported_rate_answerable": 0.10144927536231885,
+  "unsupported_rate_unanswerable": 0.16666666666666666,
+  "seconds_per_example": 21.430223214285718,
+  "no_gate_no_selfcheck": {
+    "tau": 1.01,
+    "min_p": 1.01,
+    "f1": 0.5714285714285714,
+    "recall": 0.8378378378378378,
+    "fa": 0.54,
+    "precision": 0.43356643356643354
+  },
+  "joint_search_choice": {
+    "tau": 0.52,
+    "min_p": 1.01,
+    "f1": 0.5991189427312775,
+    "recall": 0.918918918918919,
+    "fa": 0.5666666666666667,
+    "precision": 0.4444444444444444
+  },
+  "fa_budget": 0.1,
+  "procedure": "joint (tau, min_p) grid on MTRAG checker dev; max F1 s.t. FA <= own refusal FA + budget",
+  "calibrated_at": "2026-10-07T10:18:40+00:00"
+}

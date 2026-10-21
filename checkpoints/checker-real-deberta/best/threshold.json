@@ -1,0 +1,9 @@
+{
+  "threshold": 0.3642749786376953,
+  "f1": 0.06956521739130435,
+  "recall": 0.03773584905660377,
+  "false_abstention_rate": 0.03333333333333333,
+  "tuned_on": "all",
+  "recall_real": 0.0,
+  "recall_synthetic": 0.04
+}

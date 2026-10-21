@@ -1,0 +1,37 @@
+{
+  "model_id": "local:qwen3:1.7b",
+  "tau": 0.63,
+  "min_p": 0.35,
+  "f1": 0.6666666666666666,
+  "recall": 0.7162162162162162,
+  "fa": 0.21333333333333335,
+  "precision": 0.6235294117647059,
+  "source": "calibrated",
+  "complete": true,
+  "n_dev": 224,
+  "n_unanswerable": 74,
+  "refusal_rate_answerable": 0.15333333333333332,
+  "refusal_rate_unanswerable": 0.47297297297297297,
+  "unsupported_rate_answerable": 0.11811023622047244,
+  "unsupported_rate_unanswerable": 0.2564102564102564,
+  "seconds_per_example": 32.490446428571424,
+  "no_gate_no_selfcheck": {
+    "tau": 1.01,
+    "min_p": 1.01,
+    "f1": 0.5303030303030303,
+    "recall": 0.47297297297297297,
+    "fa": 0.15333333333333332,
+    "precision": 0.603448275862069
+  },
+  "joint_search_choice": {
+    "tau": 0.63,
+    "min_p": 0.35,
+    "f1": 0.6666666666666666,
+    "recall": 0.7162162162162162,
+    "fa": 0.21333333333333335,
+    "precision": 0.6235294117647059
+  },
+  "fa_budget": 0.1,
+  "procedure": "joint (tau, min_p) grid on MTRAG checker dev; max F1 s.t. FA <= own refusal FA + budget",
+  "calibrated_at": "2026-10-07T12:13:07+00:00"
+}
