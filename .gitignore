@@ -1,18 +1,74 @@
+# ---------------------------------------------------------------- secrets (never commit)
+.env
+.env.*
+!.env.example
+
+# ---------------------------------------------------------------- Python
 __pycache__/
-*.pyc
+*.py[cod]
 .venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.ipynb_checkpoints/
+uv.lock.bak
+
+# ---------------------------------------------------------------- web front end (also web/.gitignore)
+node_modules/
+.next/
+*.tsbuildinfo
+
+# ---------------------------------------------------------------- large data, indexes and models
+# MTRAG benchmark copy, FAISS / BM25 indexes: rebuilt with the scripts (see README)
 data/
 indexes/
-checkpoints/
+# Model weights (several GB) are not committed; only the small files the service and the report need:
+# research thresholds, self-check settings and the per-model calibration results.
+checkpoints/**
+!checkpoints/
+!checkpoints/*.json
+!checkpoints/calibration/
+!checkpoints/calibration/*.json
+!checkpoints/calibration/summary.md
+!checkpoints/calibration/summary.csv
+!checkpoints/*/
+!checkpoints/*/best/
+!checkpoints/*/best/threshold.json
+!checkpoints/*/best/checker_mode.json
+
+# ---------------------------------------------------------------- run outputs and logs
 outputs/
 results/*.jsonl
-*.egg-info/
-.ipynb_checkpoints/
-.env
 eval_out/
-*.db
-*.bundle
-celerybeat-schedule*
-.ruff_cache/
-uv.lock.bak
+logs/
+*.log
 smoke_results/
+celerybeat-schedule*
+*.db
+*.sqlite3
+
+# ---------------------------------------------------------------- files used to move updates (git bundles)
+*.bundle
+Claude outputs/
+
+# ---------------------------------------------------------------- report: LaTeX build files and backups
+docs/previous_*/
+*.aux
+*.toc
+*.lof
+*.lot
+*.out
+*.synctex.gz
+*.fls
+*.fdb_latexmk
+
+# ---------------------------------------------------------------- local overrides, OS and editor files
+docker-compose.override.yml
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.swp
