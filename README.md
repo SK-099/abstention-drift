@@ -52,17 +52,38 @@ Unanswerable questions cluster in late turns, especially in MTRAG-UN, so a raw p
 | **S4** | LLM rewrite | BM25 + BGE + re-rank | **checker (real + synthetic)** | **proposed** |
 | S4-oracle | human rewrites | BM25 + BGE + re-rank | checker (real + synthetic) | upper bound |
 
-Answer quality (faithfulness, RB_llm, IDK-conditioned scores) is measured with the **official MTRAG evaluation scripts**, since our prediction files use their format.
+Our prediction files use the MTRAG format, so answer quality (faithfulness, RB_llm, IDK-conditioned scores) can be measured with the **official MTRAG evaluation scripts**; this was not part of the reported results.
 
 ### Results
 
-_To be filled in; `scripts/evaluate_abstention.py` writes `results/abstention.md` and `results/drift.png`._
+MTRAG-UN held-out test set, 429 turns (97 unanswerable). FA = share of answerable turns wrongly refused;
+drift slope = change in abstention recall per extra turn, with a 95% conversation-bootstrap confidence interval.
+Full tables: [`results/abstention.md`](results/abstention.md), [`results/agent_comparison.md`](results/agent_comparison.md)
+and the [project report](docs/CS683_Project_Report.pdf) (Chapters on main results, RQ1 and RQ2).
 
-| System | Abstain F1 | Recall early / mid / late | Drift slope [95% CI] | False-abstention | RB_llm |
-|---|---|---|---|---|---|
-| S0 | | | | | |
-| S2 | | | | | |
-| S4 | | | | | |
+| System | Abstain F1 | Recall | Precision | FA ↓ | Recall early / mid / late | Drift slope [95% CI] |
+|---|---|---|---|---|---|---|
+| S0 | .451 | **.567** | .374 | .277 | .538 / .536 / .589 | −.002 [−.048, +.046] |
+| S1 | .453 | .526 | .398 | .232 | .462 / .500 / .554 | −.005 [−.051, +.041] |
+| S2 | .443 | .464 | .425 | .184 | .538 / .393 / .482 | −.003 [−.046, +.043] |
+| S2-rr | .473 | .546 | .417 | .223 | .538 / .464 / .589 | +.011 [−.031, +.057] |
+| S3 | .457 | .515 | .410 | .217 | .538 / .429 / .554 | +.011 [−.030, +.055] |
+| S4 | .449 | .495 | .410 | .208 | .538 / .393 / .536 | +.008 [−.034, +.051] |
+| S5 agent: retry only | .465 | .443 | **.489** | **.136** | .462 / .357 / .482 | +.010 [−.033, +.054] |
+| **S5 agent: retry + selective self-check** | **.511** | .577 | .459 | .199 | .538 / .500 / .625 | +.020 [−.026, +.068] |
+
+Turn buckets: early = turns 1–2 (13 unanswerable / 90 answerable), mid = 3–5 (28 / 135), late = 6+ (56 / 107).
+
+**Findings**
+
+- **No abstention drift.** Every recall slope lies between −.005 and +.020 per turn and every confidence interval
+  contains zero; with domain and follow-up type controlled the odds ratio per turn is 0.97–1.10. The controlled
+  probe (444 unanswerable examples spread evenly over turns) rules out declines larger than about one point per turn.
+- **The answerability gates do not pay off.** S2-rr, S3 and S4 each add more wrong refusals than correct ones
+  compared with S2 (e.g. S4: 3 more catches, 8 more wrong refusals).
+- **The S5 agent gives the best balance.** Retrying before refusing lowers wrong refusals to 13.6%; adding a
+  calibrated self-check gives the best F1 (.511).
+- Answer quality (RB_llm, faithfulness) was not measured; the results cover refusal decisions only.
 
 ## Quickstart
 
