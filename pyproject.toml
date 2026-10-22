@@ -43,7 +43,7 @@ demo = ["gradio>=4.40,<6"]
 plots = ["matplotlib"]
 
 [dependency-groups]
-dev = ["pytest>=8", "ruff>=0.6", "pytest-cov"]
+dev = ["pytest>=8", "ruff>=0.6", "pytest-cov", "reportlab>=4.0"]  # reportlab: the service tests build small PDFs
 
 [tool.setuptools.packages.find]
 where = ["src"]
