@@ -85,12 +85,69 @@ Turn buckets: early = turns 1–2 (13 unanswerable / 90 answerable), mid = 3–5
   calibrated self-check gives the best F1 (.511).
 - Answer quality (RB_llm, faithfulness) was not measured; the results cover refusal decisions only.
 
-## Quickstart
+## How to run it
+
+There are three ways to use this repository, from quickest to most complete.
+
+### 1. Try the notebook app without models (any computer, ~5 minutes)
+
+A demo mode with scripted stand-in models shows the whole interface (sources, cited chat, Studio, sharing)
+without Docker, a GPU or model downloads. Needs Python 3.11 or 3.12 and Node.js 20+.
+
+```bash
+git clone https://github.com/SK-099/abstention-drift.git && cd abstention-drift
+pip install -e ".[agent]" -e ./service          # Python 3.11 or 3.12
+python service/scripts/demo_api.py              # API on http://localhost:8000
+# in a second terminal:
+cd web && npm install && npm run dev            # open http://localhost:3000
+```
+
+### 2. Run the full notebook app with real local models (Docker)
+
+**You need:** Docker Desktop (Windows: WSL 2 backend) or Docker Engine, about 16 GB RAM and 25 GB free disk,
+and [Ollama](https://ollama.com/download) running on the host. An NVIDIA GPU with 4 GB or more makes answers
+much faster but is not required.
+
+```bash
+git clone https://github.com/SK-099/abstention-drift.git && cd abstention-drift
+cp .env.example .env                           # Windows PowerShell: copy .env.example .env
+
+ollama pull qwen2.5:3b                         # the default model (calibrated for this project)
+# optional: all ten models of the model picker (Windows)
+# powershell -ExecutionPolicy Bypass -File service\scripts\pull_free_models.ps1
+
+docker compose build api                       # first build ~10-25 min (PyTorch, models for search)
+docker compose build web
+docker compose up -d                           # API, worker, web UI, Postgres, Redis, Qdrant
+```
+
+Open **http://localhost:3000**, create a notebook, add a PDF, a web page, a YouTube link or pasted text, and ask
+questions. The API documentation is at http://localhost:8000/docs.
+
+- **Audio overviews** need the Kokoro voice service: `docker compose --profile tts up -d kokoro`
+  (stop it afterwards with `docker compose stop kokoro`; it uses a lot of CPU).
+- **Stop everything:** `docker compose down` (your notebooks are kept in Docker volumes).
+- **Cloud models** (Claude, GPT, Gemini, ...): put an API key such as `OPENROUTER_API_KEY` in `.env` and run
+  `docker compose up -d` again; they then appear in the model picker.
+- **Answerability gate.** The fine-tuned checker weights (about 1 GB) are not in the repository. Without
+  them the app runs without the gate and still refuses through the model's own refusals and the self-check.
+  To use the gate, train it (section 3) or copy a trained `checkpoints/checker/best/` folder into place.
+- **Laptop tips:** close other heavy apps, use a 3B model such as `llama3.2:3b` for everyday questions, and
+  see [docs/windows_laptop.md](docs/windows_laptop.md) and [docs/service.md](docs/service.md).
+- **Check that everything works:** `python scripts/smoke_test.py --pdfs paper1.pdf paper2.pdf --quick` tests
+  every feature with every installed model and writes a report to `smoke_results/`.
+
+### 3. Reproduce the research experiments
+
+Follow the Quickstart below: it downloads MTRAG and MTRAG-UN, builds the indexes, trains the checker and
+runs systems S0-S5. A GPU with 16 GB (free Colab or Kaggle T4) is enough for the full pipeline.
+
+## Quickstart (research pipeline)
 
 **Windows laptop with a 4 GB GPU?** Follow [docs/windows_laptop.md](docs/windows_laptop.md) and use `configs/laptop.yaml`.
 
 ```bash
-git clone <this repo> && cd abstention-drift
+git clone https://github.com/SK-099/abstention-drift.git && cd abstention-drift
 pip install -r requirements.txt && pip install -e .
 bash scripts/setup_data.sh                       # MTRAG + MTRAG-UN (Apache-2.0)
 python scripts/dataset_stats.py                  # CPU, 2 s: reproduces the table above

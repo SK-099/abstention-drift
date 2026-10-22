@@ -34,8 +34,15 @@ def make_gate(s: Settings):
         return TEIChecker(s.tei_checker_url, tau)
     from pathlib import Path
 
-    if not Path(s.checker_path).exists():
-        return None  # no trained checker available: the agent runs without a gate
+    path = Path(s.checker_path)
+    weights = ("model.safetensors", "pytorch_model.bin")
+    if not path.exists() or not any((path / w).exists() for w in weights):
+        # no trained checker (a fresh clone has only its threshold.json, the weights are not in git):
+        # the agent runs without the gate; the generator's own refusals and the self-check still apply
+        import logging
+
+        logging.getLogger(__name__).warning("no checker weights in %s: running without the answerability gate", path)
+        return None
     from abstain.checker import AnswerabilityChecker
 
     return AnswerabilityChecker(s.checker_path, threshold=tau, device=s.device or "cpu", max_length=256)
