@@ -12,7 +12,7 @@
 #   docker compose --profile vllm up      vLLM OpenAI-compatible server on an NVIDIA GPU
 #   hosted: Groq / Together / OpenRouter / Modal / RunPod (OpenAI-compatible URL + key)
 #   docker compose --profile tei up       Hugging Face TEI for embeddings + re-ranking (instead of in-process)
-# First run: load the MTRAG corpora into Qdrant (see docs/service.md):
+# First run: load the MTRAG corpora into Qdrant (see guides/service.md):
 #   docker compose run --rm api python service/scripts/migrate_to_qdrant.py --index-dir /indexes
 
 # One image for api / worker / beat / migrate. Only `api` builds it (several services building the same

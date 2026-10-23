@@ -4,9 +4,6 @@
 
 CS683 (NLP) course project · built on [MTRAG](https://github.com/IBM/mt-rag-benchmark) (TACL 2025) and SemEval-2026 Task 8 (MTRAGEval)
 
-<!-- Replace with a GIF of app/app.py once the demo runs -->
-<!-- ![demo](docs/demo.gif) -->
-
 ## Why this matters
 
 RAG assistants often answer confidently even when the retrieved documents do not contain the answer. In SemEval-2026 Task 8, one of the strongest systems (AILS-NTUA, 1st in retrieval) reached 83.9% answerability accuracy but caught only **21.8% of unanswerable turns** on the development set ([AILS-NTUA, SemEval-2026](https://aclanthology.org/2026.semeval-1.175/)). Research on abstention is almost entirely single-turn. **We ask whether abstention gets worse deeper into a conversation.**
@@ -59,7 +56,7 @@ Our prediction files use the MTRAG format, so answer quality (faithfulness, RB_l
 MTRAG-UN held-out test set, 429 turns (97 unanswerable). FA = share of answerable turns wrongly refused;
 drift slope = change in abstention recall per extra turn, with a 95% conversation-bootstrap confidence interval.
 Full tables: [`results/abstention.md`](results/abstention.md), [`results/agent_comparison.md`](results/agent_comparison.md)
-and the [project report](docs/CS683_Project_Report.pdf) (Chapters on main results, RQ1 and RQ2).
+and the [final project report](docs/CS683_Final_Report.pdf).
 
 | System | Abstain F1 | Recall | Precision | FA ↓ | Recall early / mid / late | Drift slope [95% CI] |
 |---|---|---|---|---|---|---|
@@ -136,11 +133,11 @@ questions. The API documentation is at http://localhost:8000/docs.
   four files from the release into `checkpoints/checker/best/` by hand. Without them the app still runs, but
   without the gate.
 - **Laptop tips:** close other heavy apps, use a 3B model such as `llama3.2:3b` for everyday questions, and
-  see [docs/windows_laptop.md](docs/windows_laptop.md) and [docs/service.md](docs/service.md).
+  see [guides/windows_laptop.md](guides/windows_laptop.md) and [guides/service.md](guides/service.md).
 - **Check that everything works:** `python scripts/smoke_test.py --pdfs paper1.pdf paper2.pdf --quick` tests
   every feature with every installed model and writes a report to `smoke_results/`.
 
-**Deploying on a cloud server (AWS EC2)?** Follow [docs/deploy_aws.md](docs/deploy_aws.md): machine choice,
+**Deploying on a cloud server (AWS EC2)?** Follow [guides/deploy_aws.md](guides/deploy_aws.md): machine choice,
 security group, Ollama or a hosted model, the `PUBLIC_API_URL` setting and costs.
 
 ### 3. Reproduce the research experiments
@@ -150,7 +147,7 @@ runs systems S0-S5. A GPU with 16 GB (free Colab or Kaggle T4) is enough for the
 
 ## Quickstart (research pipeline)
 
-**Windows laptop with a 4 GB GPU?** Follow [docs/windows_laptop.md](docs/windows_laptop.md) and use `configs/laptop.yaml`.
+**Windows laptop with a 4 GB GPU?** Follow [guides/windows_laptop.md](guides/windows_laptop.md) and use `configs/laptop.yaml`.
 
 ```bash
 git clone https://github.com/SK-099/abstention-drift.git && cd abstention-drift
@@ -192,7 +189,7 @@ cp .env.example .env && docker compose up -d --build     # light stack; Ollama s
 # docker compose --profile full up -d   adds Langfuse, Prometheus, Grafana, nightly eval (~3 GB more RAM)
 ```
 
-See [docs/service.md](docs/service.md) for the API, deployment options (Fly.io/Render, Kubernetes + vLLM,
+See [guides/service.md](guides/service.md) for the API, deployment options (Fly.io/Render, Kubernetes + vLLM,
 Modal/RunPod) and the release process.
 
 ### Notebook UI (NotebookLM-style)
@@ -202,7 +199,7 @@ web pages, YouTube transcripts, pasted text, web search) with source guides; str
 when the sources do not contain the answer; a Studio with audio overviews (Kokoro voices), briefing docs,
 study guides, FAQs, timelines, mind maps, flashcards and quizzes; notes; sharing (viewer / editor / link);
 and a **model picker like ChatGPT / Claude.ai** grouped into standard and thinking models, with refusal
-thresholds calibrated per model (`docker compose run --rm calibrate`). See [docs/notebook_ui.md](docs/notebook_ui.md). Without Docker or
+thresholds calibrated per model (`docker compose run --rm calibrate`). See [guides/notebook_ui.md](guides/notebook_ui.md). Without Docker or
 models: `python service/scripts/demo_api.py` and `cd web && npm install && npm run dev`.
 
 ## Repository layout
@@ -221,13 +218,20 @@ src/abstain/
 scripts/                    one script per step (see Quickstart)
 app/app.py                  Gradio demo (sources + P(unanswerable) meter)
 tests/                      unit tests for metrics, synthesis, thresholding, IDK detection
-docs/                       proposal, 2-page report outline, team plan
+docs/                       project reports (initial and final, PDF)
+guides/                     service, notebook UI, agent, Windows laptop and AWS deployment guides
 notebooks/colab_quickstart.ipynb   one-domain end-to-end run on a free T4
 ```
 
-## Team and plan
+## Team
 
-See [docs/team_plan.md](docs/team_plan.md) for the 4-week plan and role split.
+| Name | Roll No. |
+|---|---|
+| Arpan Mondal | 2521505 |
+| Abhilash Basumatary | 2521501 |
+| Poulami Mukherjee | 2521524 |
+| Subhashis Kar | 2521538 |
+| Kadapala Goharsh Reddy | 2521516 |
 
 ## Limitations
 

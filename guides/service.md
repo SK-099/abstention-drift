@@ -139,7 +139,7 @@ has secrets: Fly.io (`FLY_API_TOKEN`), Render (`RENDER_DEPLOY_HOOK`) or Kubernet
 
 Switching LLM provider only changes `LLM_BASE_URL`, `LLM_MODEL` and `LLM_API_KEY`; re-run the
 calibration and the live quality gate before release. Per-model thresholds for the notebook's model menu:
-`docker compose run --rm calibrate` (see docs/notebook_ui.md).
+`docker compose run --rm calibrate` (see guides/notebook_ui.md).
 
 ## 6. Tests
 

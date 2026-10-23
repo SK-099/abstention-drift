@@ -75,3 +75,6 @@ desktop.ini
 
 # GitHub Release assets (uploaded to the release, not committed)
 release/
+
+# Report LaTeX sources are kept locally; only the PDFs are published
+docs/*.tex
