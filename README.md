@@ -218,7 +218,7 @@ src/abstain/
 scripts/                    one script per step (see Quickstart)
 app/app.py                  Gradio demo (sources + P(unanswerable) meter)
 tests/                      unit tests for metrics, synthesis, thresholding, IDK detection
-docs/                       project reports (initial and final, PDF)
+docs/                       problem statement and final project report (PDF)
 guides/                     service, notebook UI, agent, Windows laptop and AWS deployment guides
 notebooks/colab_quickstart.ipynb   one-domain end-to-end run on a free T4
 ```

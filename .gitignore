@@ -78,3 +78,6 @@ release/
 
 # Report LaTeX sources are kept locally; only the PDFs are published
 docs/*.tex
+
+# Initial report kept locally only
+docs/CS683_Initial_Report.pdf
