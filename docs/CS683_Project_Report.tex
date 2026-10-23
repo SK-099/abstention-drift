@@ -89,7 +89,7 @@ RAG does not solve the problem completely. If the retrieved passages do not cont
 \section{Motivation}
 Two observations motivated this project.
 \begin{enumerate}
-\item \textbf{Abstention is weak even in strong systems.} In the SemEval-2026 Task~8 (MTRAGEval) shared task on multi-turn RAG, one of the best systems reached 83.9\% answerability accuracy overall but detected only \textbf{21.8\%} of the unanswerable turns \cite{ails}.
+\item \textbf{Abstention is weak even in strong systems.} In the SemEval-2026 Task~8 (MTRAGEval) shared task on multi-turn RAG, one of the best systems reached 83.9\% answerability accuracy overall but detected only \textbf{21.8\%} of the unanswerable turns on the development set \cite{ails}.
 \item \textbf{Abstention has mostly been studied on single questions} \cite{squad2,rgb,wen2025,feng}. Real users hold conversations: later questions are short, depend on earlier turns (``what about the second one?''), and the conversation history keeps growing. It is plausible that the assistant becomes \emph{worse} at knowing when not to answer as the conversation continues. We call this \emph{abstention drift}. No earlier work had measured it.
 \end{enumerate}
 A second practical problem is data: unanswerable turns are rare (6.5\% of the MTRAG training data), so training a detector needs a cheap way to create more examples.
@@ -1107,15 +1107,15 @@ Member 5 & Validation, demo and documentation & Error analysis, Gradio demo, REA
 %================ REFERENCES ================
 \begin{thebibliography}{99}
 \addcontentsline{toc}{chapter}{References}
-\bibitem{mtrag} Y.~Katsis, S.~Rosenthal, et al. MTRAG: A Multi-Turn Conversational Benchmark for Evaluating RAG Systems. \emph{TACL} 13:784--808, 2025.
-\bibitem{mtragun} S.~Rosenthal, Y.~Katsis, et al. MTRAG-UN: A Benchmark for Open Challenges in Multi-Turn RAG Conversations. \emph{Findings of ACL}, 2026.
-\bibitem{ails} D.~Athanasiou et al. AILS-NTUA at SemEval-2026 Task 8: Multi-Turn RAG Conversations. \emph{SemEval}, 2026. arXiv:2603.10524.
+\bibitem{mtrag} Y.~Katsis, S.~Rosenthal, et al. MTRAG: A Multi-Turn Conversational Benchmark for Evaluating Retrieval-Augmented Generation Systems. \emph{TACL} 13:784--808, 2025.
+\bibitem{mtragun} S.~Rosenthal, Y.~Katsis, et al. MTRAG-UN: A Benchmark for Open Challenges in Multi-Turn RAG Conversations. \emph{Findings of ACL 2026}, pp.~10363--10369, 2026.
+\bibitem{ails} D.~Athanasiou, M.~Lymperaiou, G.~Filandrianos, A.~Voulodimos, G.~Stamou. AILS-NTUA at SemEval-2026 Task 8: Evaluating Multi-Turn RAG Conversations. \emph{Proc.\ SemEval-2026}, pp.~1340--1365, 2026.
 \bibitem{rag} P.~Lewis et al. Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks. \emph{NeurIPS}, 2020.
 \bibitem{squad2} P.~Rajpurkar, R.~Jia, P.~Liang. Know What You Don't Know: Unanswerable Questions for SQuAD. \emph{ACL}, 2018.
 \bibitem{rgb} J.~Chen, H.~Lin, X.~Han, L.~Sun. Benchmarking Large Language Models in Retrieval-Augmented Generation. \emph{AAAI}, 2024.
-\bibitem{wen2025} B.~Wen et al. Know Your Limits: A Survey of Abstention in Large Language Models. \emph{TACL}, 2025.
+\bibitem{wen2025} B.~Wen et al. Know Your Limits: A Survey of Abstention in Large Language Models. \emph{TACL} 13, 2025.
 \bibitem{feng} S.~Feng et al. Don't Hallucinate, Abstain: Identifying LLM Knowledge Gaps via Multi-LLM Collaboration. \emph{ACL}, 2024.
-\bibitem{kadavath} S.~Kadavath et al. Language Models (Mostly) Know What They Know. arXiv:2207.05221, 2022.
+\bibitem{kadavath} Z.~Jiang, J.~Araki, H.~Ding, G.~Neubig. How Can We Know When Language Models Know? On the Calibration of Language Models for Question Answering. \emph{TACL} 9:962--977, 2021.
 \bibitem{selective} Y.~Geifman, R.~El-Yaniv. Selective Classification for Deep Neural Networks. \emph{NeurIPS}, 2017.
 \bibitem{kamath} A.~Kamath, R.~Jia, P.~Liang. Selective Question Answering under Domain Shift. \emph{ACL}, 2020.
 \bibitem{selfrag} A.~Asai et al. Self-RAG: Learning to Retrieve, Generate, and Critique through Self-Reflection. \emph{ICLR}, 2024.
@@ -1125,9 +1125,9 @@ Member 5 & Validation, demo and documentation & Error analysis, Gradio demo, REA
 \bibitem{bm25} S.~Robertson, H.~Zaragoza. The Probabilistic Relevance Framework: BM25 and Beyond. \emph{Foundations and Trends in IR}, 2009.
 \bibitem{bge} S.~Xiao et al. C-Pack: Packed Resources for General Chinese Embeddings. \emph{SIGIR}, 2024.
 \bibitem{rrf} G.~Cormack, C.~Clarke, S.~B\"uttcher. Reciprocal Rank Fusion Outperforms Condorcet and Individual Rank Learning Methods. \emph{SIGIR}, 2009.
-\bibitem{monobert} R.~Nogueira, K.~Cho. Passage Re-ranking with BERT. arXiv:1901.04085, 2019.
-\bibitem{faiss} J.~Johnson, M.~Douze, H.~J\'egou. Billion-Scale Similarity Search with GPUs. \emph{IEEE Transactions on Big Data}, 2019.
-\bibitem{qwen} Qwen Team. Qwen2.5 Technical Report. arXiv:2412.15115, 2024.
+\bibitem{monobert} J.~Lin, R.~Nogueira, A.~Yates. \emph{Pretrained Transformers for Text Ranking: BERT and Beyond}. Synthesis Lectures on Human Language Technologies, Morgan \& Claypool, 2021.
+\bibitem{faiss} J.~Johnson, M.~Douze, H.~J\'egou. Billion-Scale Similarity Search with GPUs. \emph{IEEE Transactions on Big Data} 7(3):535--547, 2021.
+\bibitem{qwen} Qwen Team, Alibaba Cloud. Qwen2.5-3B-Instruct (open-weight model release and model card), 2024. \url{https://huggingface.co/Qwen/Qwen2.5-3B-Instruct}.
 \bibitem{deberta} P.~He, J.~Gao, W.~Chen. DeBERTaV3: Improving DeBERTa using ELECTRA-Style Pre-Training with Gradient-Disentangled Embedding Sharing. \emph{ICLR}, 2023.
 \bibitem{llmjudge} L.~Zheng et al. Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena. \emph{NeurIPS}, 2023.
 \end{thebibliography}

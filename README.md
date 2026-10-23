@@ -9,7 +9,7 @@ CS683 (NLP) course project · built on [MTRAG](https://github.com/IBM/mt-rag-ben
 
 ## Why this matters
 
-RAG assistants often answer confidently even when the retrieved documents do not contain the answer. In SemEval-2026 Task 8, one of the strongest systems (AILS-NTUA, 1st in retrieval) reached 83.9% answerability accuracy but caught only **21.8% of unanswerable turns** ([AILS-NTUA, 2026](https://arxiv.org/abs/2603.10524)). Research on abstention is almost entirely single-turn. **We ask whether abstention gets worse deeper into a conversation.**
+RAG assistants often answer confidently even when the retrieved documents do not contain the answer. In SemEval-2026 Task 8, one of the strongest systems (AILS-NTUA, 1st in retrieval) reached 83.9% answerability accuracy but caught only **21.8% of unanswerable turns** on the development set ([AILS-NTUA, SemEval-2026](https://aclanthology.org/2026.semeval-1.175/)). Research on abstention is almost entirely single-turn. **We ask whether abstention gets worse deeper into a conversation.**
 
 ## Research questions
 
@@ -129,13 +129,17 @@ questions. The API documentation is at http://localhost:8000/docs.
 - **Stop everything:** `docker compose down` (your notebooks are kept in Docker volumes).
 - **Cloud models** (Claude, GPT, Gemini, ...): put an API key such as `OPENROUTER_API_KEY` in `.env` and run
   `docker compose up -d` again; they then appear in the model picker.
-- **Answerability gate.** The fine-tuned checker weights (about 1 GB) are not in the repository. Without
-  them the app runs without the gate and still refuses through the model's own refusals and the self-check.
-  To use the gate, train it (section 3) or copy a trained `checkpoints/checker/best/` folder into place.
+- **Answerability gate.** The fine-tuned checker weights (about 1.1 GB) are too large for git and are published
+  as a [GitHub release](https://github.com/SK-099/abstention-drift/releases/tag/checker-v1). Download them
+  with `python scripts/get_checker.py` before `docker compose up -d` (or download the four files from the
+  release into `checkpoints/checker/best/`). Without them the app still runs, but without the gate.
 - **Laptop tips:** close other heavy apps, use a 3B model such as `llama3.2:3b` for everyday questions, and
   see [docs/windows_laptop.md](docs/windows_laptop.md) and [docs/service.md](docs/service.md).
 - **Check that everything works:** `python scripts/smoke_test.py --pdfs paper1.pdf paper2.pdf --quick` tests
   every feature with every installed model and writes a report to `smoke_results/`.
+
+**Deploying on a cloud server (AWS EC2)?** Follow [docs/deploy_aws.md](docs/deploy_aws.md): machine choice,
+security group, Ollama or a hosted model, the `PUBLIC_API_URL` setting and costs.
 
 ### 3. Reproduce the research experiments
 

@@ -72,3 +72,6 @@ desktop.ini
 .vscode/
 .idea/
 *.swp
+
+# GitHub Release assets (uploaded to the release, not committed)
+release/

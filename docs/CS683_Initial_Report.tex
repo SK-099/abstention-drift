@@ -35,7 +35,7 @@
 }]
 
 \section{Problem Statement}
-Retrieval-augmented generation (RAG) assistants are widely deployed as conversational agents, but they often answer confidently even when the retrieved documents do not contain the answer. In the SemEval-2026 multi-turn RAG task (MTRAGEval), one of the strongest systems reached 83.9\% answerability accuracy yet detected only \textbf{21.8\% of unanswerable turns} \cite{ails}: its LLM judges favoured plausible-sounding answers over evidence. Research on abstention (a model declining to answer) is almost entirely single-turn \cite{wen2025,feng}, while real conversations get longer and more context-dependent as they go on. We ask:
+Retrieval-augmented generation (RAG) assistants are widely deployed as conversational agents, but they often answer confidently even when the retrieved documents do not contain the answer. In the SemEval-2026 multi-turn RAG task (MTRAGEval), one of the strongest systems reached 83.9\% answerability accuracy yet detected only \textbf{21.8\% of unanswerable turns} (development set) \cite{ails}: its LLM judges favoured plausible-sounding answers over evidence. Research on abstention (a model declining to answer) is almost entirely single-turn \cite{wen2025,feng}, while real conversations get longer and more context-dependent as they go on. We ask:
 
 \textbf{RQ1.} Does detection of unanswerable questions get worse at later turns in a conversation (\emph{abstention drift})?\\
 \textbf{RQ2.} Can a lightweight answerability checker, trained on cheaply generated unanswerable examples, reduce this drift \emph{without} increasing wrong refusals on answerable turns?
@@ -143,10 +143,10 @@ Each member owns one component end to end and one week-by-week deliverable (Tabl
 
 {\footnotesize
 \begin{thebibliography}{9}\setlength{\itemsep}{0pt}
-\bibitem{mtrag} Y.~Katsis, S.~Rosenthal, et al. MTRAG: A Multi-Turn Conversational Benchmark for Evaluating RAG Systems. \emph{TACL} 13:784--808, 2025.
-\bibitem{mtragun} S.~Rosenthal, Y.~Katsis, et al. MTRAG-UN: A Benchmark for Open Challenges in Multi-Turn RAG Conversations. \emph{Findings of ACL}, 2026.
-\bibitem{ails} D.~Athanasiou et al. AILS-NTUA at SemEval-2026 Task 8: Multi-Turn RAG Conversations. \emph{SemEval}, 2026. arXiv:2603.10524.
-\bibitem{wen2025} B.~Wen et al. Know Your Limits: A Survey of Abstention in Large Language Models. \emph{TACL}, 2025.
+\bibitem{mtrag} Y.~Katsis, S.~Rosenthal, et al. MTRAG: A Multi-Turn Conversational Benchmark for Evaluating Retrieval-Augmented Generation Systems. \emph{TACL} 13:784--808, 2025.
+\bibitem{mtragun} S.~Rosenthal, Y.~Katsis, et al. MTRAG-UN: A Benchmark for Open Challenges in Multi-Turn RAG Conversations. \emph{Findings of ACL 2026}, pp.~10363--10369, 2026.
+\bibitem{ails} D.~Athanasiou, M.~Lymperaiou, G.~Filandrianos, A.~Voulodimos, G.~Stamou. AILS-NTUA at SemEval-2026 Task 8: Evaluating Multi-Turn RAG Conversations. \emph{Proc.\ SemEval-2026}, pp.~1340--1365, 2026.
+\bibitem{wen2025} B.~Wen et al. Know Your Limits: A Survey of Abstention in Large Language Models. \emph{TACL} 13, 2025.
 \bibitem{feng} S.~Feng et al. Don't Hallucinate, Abstain: Identifying LLM Knowledge Gaps via Multi-LLM Collaboration. \emph{ACL}, 2024.
 \bibitem{rrf} G.~Cormack, C.~Clarke, S.~B\"uttcher. Reciprocal Rank Fusion Outperforms Condorcet and Individual Rank Learning Methods. \emph{SIGIR}, 2009.
 \bibitem{bge} S.~Xiao et al. C-Pack: Packed Resources for General Chinese Embeddings. \emph{SIGIR}, 2024.
