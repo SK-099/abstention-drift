@@ -49,7 +49,7 @@ Kadapala Goharsh Reddy & 2521516 & kadapala.reddy25m@iiitg.ac.in \\
 \vspace{-10pt}
 
 \section{Introduction}
-Chat assistants that answer from a user's own documents use retrieval-augmented generation (RAG) \cite{rag}: they retrieve passages and let a language model answer from them. Their most harmful failure is answering confidently when the documents do \emph{not} contain the answer. The goal of this project was to build and deploy a complete, self-hosted notebook assistant that (i) answers only from the user's sources, with citations, (ii) says ``I don't know'' when the sources do not support an answer, also late in a long conversation, and (iii) runs on modest hardware: a laptop with a 4\,GB GPU and a free-tier cloud virtual machine. The project was carried out in two stages: a research stage that measured abstention on the MTRAG-UN benchmark and chose the refusal method, and an engineering stage that turned the result into the deployed application described in this report.
+Chat assistants that answer from a user's own documents use retrieval-augmented generation (RAG) \cite{rag}: they retrieve passages and let a language model answer from them. Their most harmful failure is answering confidently when the documents do \emph{not} contain the answer. The goal of this project was to build and deploy a complete, self-hosted notebook assistant that (i) answers only from the user's sources, with citations, (ii) says ``I don't know'' when the sources do not support an answer, also late in a long conversation, and (iii) runs on modest hardware. The GitHub repository ships all ten supported models, and the complete application runs locally with Docker at \url{http://localhost:3000}; because of limited disk space and memory on the AWS virtual machine, only five of these ten models were deployed there. A research stage measured abstention on the MTRAG-UN benchmark and chose the refusal method; an engineering stage turned it into the deployed application.
 
 \section{Related Work}
 SQuAD~2.0 \cite{squad2} made unanswerable questions a standard test, and RGB \cite{rgb} showed that RAG models often answer from irrelevant passages. Surveys of abstention \cite{wen2025} and multi-model approaches \cite{feng} study when a model should decline; selective prediction \cite{selective,kamath} chooses refusal thresholds under a risk budget, the approach we use for every model. Self-RAG \cite{selfrag} checks its own answers, similar to our self-check step. MTRAG \cite{mtrag} and MTRAG-UN \cite{mtragun} provide multi-turn RAG conversations with unanswerable questions; at SemEval-2026 a strong system still detected only 21.8\% of them on the development set \cite{ails}. Existing source-grounded notebook assistants are mostly closed, cloud-only services; our application provides this workflow with open models that run locally.
@@ -60,7 +60,7 @@ Given a notebook of sources (PDFs, web pages, YouTube transcripts, pasted text) 
 \item \textbf{Grounded, cited answers} and a measured, low rate of both wrong answers to unanswerable questions (\emph{abstain recall}) and wrong refusals of answerable ones (\emph{false-abstention rate}, FA).
 \item \textbf{Choice of model}: ten free open-weight models (1--4B parameters, via Ollama), each with its own refusal thresholds, since models differ strongly in how often they refuse on their own.
 \item \textbf{Notebook features}: source guides, notebook-wide summaries, Studio outputs (briefing, study guide, FAQ, timeline, mind map, flashcards, quiz, two-voice audio overview), notes and sharing.
-\item \textbf{Deployability}: one-command start with Docker Compose on a laptop and on an AWS EC2 instance, with automated tests on every change.
+\item \textbf{Deployability}: one-command start with Docker Compose, locally with all ten models (\url{http://localhost:3000}) and on an AWS EC2 instance with five of them, with automated tests on every change.
 \end{itemize}
 
 \section{Experiments and Results}
@@ -73,14 +73,14 @@ The assistant is a LangGraph agent behind a FastAPI service (Figure~\ref{fig:arc
  box/.style={draw, rounded corners=2pt, align=center, inner sep=3pt, minimum height=6mm, fill=#1}, box/.default=gray!8]
 \node[box=blue!8] (web) {Next.js notebook UI\\(browser, port 3000)};
 \node[box=green!10, right=7mm of web] (api) {FastAPI + LangGraph agent\\(rewrite, search, gate, self-check)};
-\node[box=orange!12, right=7mm of api] (llm) {Ollama: 10 local models\\(or a hosted model)};
+\node[box=orange!12, right=7mm of api] (llm) {Ollama: 10 models locally\\(5 on the AWS VM)};
 \node[box, below=4mm of web] (db) {PostgreSQL + Redis\\(notebooks, chats, queue)};
 \node[box, below=4mm of api] (wk) {Celery worker\\(indexing, guides, Studio)};
 \node[box, below=4mm of llm] (q) {Qdrant\\(hybrid search)};
 \node[box=purple!8, right=5mm of q] (tts) {Kokoro TTS};
 \draw[->] (web)--(api); \draw[->] (api)--(llm); \draw[->] (api)--(wk); \draw[->] (api)--(db); \draw[->] (api)--(q); \draw[->] (wk)--(q); \draw[->] (wk.south) -- ++(0,-2.5mm) -| (tts.south);
 \end{tikzpicture}
-\caption{Architecture of the deployed application (all parts run as Docker containers; Ollama runs on the host).}
+\caption{Architecture (Docker containers; Ollama on the host). Locally all 10 models in the repository are available; the AWS VM, limited in disk and memory, runs 5 of them.}
 \label{fig:arch}
 \end{figure}
 \vspace{-6pt}
@@ -106,7 +106,7 @@ Agent: retry before refusing & .465 & .443 & \textbf{.489} & \textbf{.136} & +.0
 \vspace{-6pt}
 
 \subsection{Per-model refusal thresholds}
-For each of the ten models we chose $(\tau,\text{min\_p})$ on 224 MTRAG development turns to maximise F1 while keeping FA at most 10 points above the model's own refusal rate. The best models reached F1 .67 (Gemma-3-4B, Qwen3-1.7B) against .62 for the research model Qwen2.5-3B; the best thresholds ranged from $\tau=.45$ to $.64$, which confirms that one setting cannot serve all models. The model menu marks calibrated models with a shield.
+For each of the ten models we chose $(\tau,\text{min\_p})$ on 224 MTRAG development turns to maximise F1 while keeping FA at most 10 points above the model's own refusal rate. The best models reached F1 .67 (Gemma-3-4B, Qwen3-1.7B) against .62 for the research model Qwen2.5-3B; the best thresholds ranged from $\tau=.45$ to $.64$, which confirms that one setting cannot serve all models.
 
 \subsection{End-to-end testing}
 A test script drives the running application through its API exactly as the interface does. It was run on the laptop with three research papers and all ten models (Table~\ref{tab:e2e}); continuous integration on GitHub additionally runs lint, 88 unit tests, the web build and an abstention quality gate on every push.
@@ -138,19 +138,19 @@ Overall & 184 checks in the main run, 0 failures; 22 warnings were model behavio
  & Laptop & AWS EC2 (free-plan credits) \\
 \midrule
 Hardware & 16\,GB RAM, NVIDIA GTX 1650 (4\,GB) & \texttt{m7i-flex.large}: 2 vCPU, 8\,GB RAM, 40\,GB disk, no GPU \\
-Models & all 10 local models & 7 small models chosen for CPU speed and disk space \\
+Models & all 10 models in the repository & 5 of the 10, chosen to fit the limited disk and memory \\
 Typical answer time & 10--70\,s & tens of seconds (CPU only) \\
-Access & \url{http://localhost:3000} & public IP, ports limited to the team's addresses \\
+Access & \url{http://localhost:3000} (Docker) & public IP, ports limited to the team's addresses \\
 Cost & -- & about USD 0.10 per hour; stopped when not in use \\
 \bottomrule
 \end{tabularx}
 \caption{Deployment environments.}
 \end{table}
 \vspace{-6pt}
-\textbf{Problems found and fixed during deployment.} Ollama's default 4{,}096-token window silently cut the sources out of long Studio prompts, so small models wrote about unrelated topics (fixed with a larger window for long jobs and an off-topic check); reference lists of papers were retrieved as evidence (filtered); several containers each using all CPU threads slowed answers about tenfold (thread limits); and the web interface needs the server's public address at build time, which is documented in the deployment guide.
+\textbf{Problems found and fixed during deployment.} Ollama's default 4{,}096-token window silently cut the sources out of long Studio prompts, so small models wrote about unrelated topics (fixed with a larger window and an off-topic check); reference lists were retrieved as evidence (filtered); and containers each using all CPU threads slowed answers about tenfold (thread limits).
 
 \section{Conclusion}
-We built and deployed a self-hosted notebook assistant that answers from the user's sources with citations and refuses when they do not support an answer. Measurements on MTRAG-UN guided the design: abstention does not drift over a conversation, the real problem is over-refusal, and an agent that searches again and checks its answer gives the best balance (F1 .511). Per-model thresholds make ten open models usable, and the end-to-end test passed for all of them on a laptop, with the system also running on an AWS free-plan instance. Remaining limitations are slow CPU-only answers in the cloud, no sign-in for public use, and a gate that is less reliable on scientific papers than on the domains it was trained on; calibrating the gate on users' own documents and adding authentication are the next steps.
+We built and deployed a self-hosted notebook assistant that answers from the user's sources with citations and refuses when they do not support an answer. Measurements on MTRAG-UN guided the design: abstention does not drift over a conversation, the real problem is over-refusal, and an agent that searches again and checks its answer gives the best balance (F1 .511). Per-model thresholds make ten open models usable; all ten pass the end-to-end test when run locally with Docker, while the AWS instance serves five of them. Remaining limitations are slow CPU-only answers in the cloud, no sign-in for public use, and a gate that is less reliable on scientific papers; calibrating it on users' own documents and adding authentication are the next steps.
 
 \clearpage
 \begin{thebibliography}{99}\setlength{\itemsep}{1pt}\small
