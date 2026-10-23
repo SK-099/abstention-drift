@@ -76,13 +76,15 @@ cd abstention-drift
 cp .env.example .env
 ```
 
-**Optional, the answerability gate:** the fine-tuned checker weights (about 1 GB) are not in the repository.
-Without them the app runs without the gate (it still refuses through the model and the self-check). To use
-it, copy the folder from the laptop that has it, from Windows PowerShell:
+**The answerability gate:** the fine-tuned checker weights (about 1.1 GB) are published as a
+[GitHub release](https://github.com/SK-099/abstention-drift/releases/tag/checker-v1). Download them on the server
+(they need about 1.1 GB of disk):
 
-```powershell
-scp -i abstain-key.pem -r F:\NLP\abstention-drift\checkpoints\checker\best ubuntu@<server-ip>:~/abstention-drift/checkpoints/checker/
+```bash
+python3 scripts/get_checker.py
 ```
+
+Without them the app still runs, but without the gate (it then refuses only through the model and the self-check).
 
 ## 5. Configure `.env`
 

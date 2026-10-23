@@ -110,6 +110,7 @@ much faster but is not required.
 
 ```bash
 git clone https://github.com/SK-099/abstention-drift.git && cd abstention-drift
+python scripts/get_checker.py                  # answerability checker weights (~1.1 GB, from the GitHub release)
 cp .env.example .env                           # Windows PowerShell: copy .env.example .env
 
 ollama pull qwen2.5:3b                         # the default model (calibrated for this project)
@@ -129,10 +130,11 @@ questions. The API documentation is at http://localhost:8000/docs.
 - **Stop everything:** `docker compose down` (your notebooks are kept in Docker volumes).
 - **Cloud models** (Claude, GPT, Gemini, ...): put an API key such as `OPENROUTER_API_KEY` in `.env` and run
   `docker compose up -d` again; they then appear in the model picker.
-- **Answerability gate.** The fine-tuned checker weights (about 1.1 GB) are too large for git and are published
-  as a [GitHub release](https://github.com/SK-099/abstention-drift/releases/tag/checker-v1). Download them
-  with `python scripts/get_checker.py` before `docker compose up -d` (or download the four files from the
-  release into `checkpoints/checker/best/`). Without them the app still runs, but without the gate.
+- **Answerability gate.** The fine-tuned checker weights (about 1.1 GB) are too large for git, so they are
+  published as a [GitHub release](https://github.com/SK-099/abstention-drift/releases/tag/checker-v1) and
+  downloaded by `scripts/get_checker.py` (step 2 above; it verifies the checksums). You can also download the
+  four files from the release into `checkpoints/checker/best/` by hand. Without them the app still runs, but
+  without the gate.
 - **Laptop tips:** close other heavy apps, use a 3B model such as `llama3.2:3b` for everyday questions, and
   see [docs/windows_laptop.md](docs/windows_laptop.md) and [docs/service.md](docs/service.md).
 - **Check that everything works:** `python scripts/smoke_test.py --pdfs paper1.pdf paper2.pdf --quick` tests
